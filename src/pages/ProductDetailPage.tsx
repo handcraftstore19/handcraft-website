@@ -10,6 +10,9 @@ import { getProductById, categories, Product } from "@/data/categories";
 import { useWishlist } from "@/contexts/WishlistContext";
 import { useReview } from "@/contexts/ReviewContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCart } from "@/contexts/CartContext";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 const ProductDetailPage = () => {
   const { productId } = useParams();
@@ -21,6 +24,9 @@ const ProductDetailPage = () => {
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { user } = useAuth();
   const { getProductReviews, canUserReview, addReview } = useReview();
+  const { addToCart } = useCart();
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   // Get related products (from same category, excluding current product)
   const relatedProducts = useMemo(() => {
@@ -205,7 +211,17 @@ const ProductDetailPage = () => {
 
                 {/* Actions */}
                 <div className="flex flex-col sm:flex-row gap-4">
-                  <Button size="lg" className="flex-1 rounded-full">
+                  <Button 
+                    size="lg" 
+                    className="flex-1 rounded-full"
+                    onClick={() => {
+                      addToCart(product, quantity);
+                      toast({
+                        title: "Added to Cart",
+                        description: `${product.name} has been added to your cart.`,
+                      });
+                    }}
+                  >
                     <ShoppingBag className="h-5 w-5 mr-2" />
                     Add to Cart
                   </Button>

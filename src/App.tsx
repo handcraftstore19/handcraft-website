@@ -7,12 +7,27 @@ import { StoreProvider } from "@/contexts/StoreContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { WishlistProvider } from "@/contexts/WishlistContext";
 import { ReviewProvider } from "@/contexts/ReviewContext";
+import { CartProvider } from "@/contexts/CartContext";
 import Index from "./pages/Index";
 import CategoryPage from "./pages/CategoryPage";
 import ProductListingPage from "./pages/ProductListingPage";
 import ProductDetailPage from "./pages/ProductDetailPage";
 import LoginPage from "./pages/LoginPage";
+import SignUpPage from "./pages/SignUpPage";
+import ForgetPasswordPage from "./pages/ForgetPasswordPage";
 import ProfilePage from "./pages/ProfilePage";
+import CartPage from "./pages/CartPage";
+import CheckoutPage from "./pages/CheckoutPage";
+import ContactUsPage from "./pages/ContactUsPage";
+import FAQsPage from "./pages/FAQsPage";
+import ShippingInfoPage from "./pages/ShippingInfoPage";
+import ReturnsExchangesPage from "./pages/ReturnsExchangesPage";
+import TrackOrderPage from "./pages/TrackOrderPage";
+import OrderDetailsPage from "./pages/OrderDetailsPage";
+import OrderConfirmationPage from "./pages/OrderConfirmationPage";
+import BestSellersPage from "./pages/BestSellersPage";
+import NewArrivalsPage from "./pages/NewArrivalsPage";
+import FeaturedProductsPage from "./pages/FeaturedProductsPage";
 import SearchPage from "./pages/SearchPage";
 import NotFound from "./pages/NotFound";
 import AdminLayout from "./components/admin/AdminLayout";
@@ -34,9 +49,10 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
-        <WishlistProvider>
-          <ReviewProvider>
-            <StoreProvider>
+        <CartProvider>
+          <WishlistProvider>
+            <ReviewProvider>
+              <StoreProvider>
             <Toaster />
             <Sonner />
             <StoreSelector />
@@ -44,7 +60,21 @@ const App = () => (
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/login" element={<LoginPage />} />
+                <Route path="/signup" element={<SignUpPage />} />
+                <Route path="/forget-password" element={<ForgetPasswordPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/cart" element={<CartPage />} />
+                <Route path="/checkout" element={<CheckoutPage />} />
+                <Route path="/contact-us" element={<ContactUsPage />} />
+                <Route path="/faqs" element={<FAQsPage />} />
+                <Route path="/shipping-info" element={<ShippingInfoPage />} />
+                <Route path="/returns-exchanges" element={<ReturnsExchangesPage />} />
+                <Route path="/track-order" element={<TrackOrderPage />} />
+                <Route path="/order/:orderId" element={<OrderDetailsPage />} />
+                <Route path="/order-confirmation/:orderId" element={<OrderConfirmationPage />} />
+                <Route path="/best-sellers" element={<BestSellersPage />} />
+                <Route path="/new-arrivals" element={<NewArrivalsPage />} />
+                <Route path="/featured-products" element={<FeaturedProductsPage />} />
                 <Route path="/search" element={<SearchPage />} />
                 <Route path="/category/:categoryId" element={<CategoryPage />} />
                 <Route path="/category/:categoryId/subcategory/:subcategoryId" element={<ProductListingPage />} />
@@ -67,9 +97,10 @@ const App = () => (
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
-            </StoreProvider>
-          </ReviewProvider>
-        </WishlistProvider>
+              </StoreProvider>
+            </ReviewProvider>
+          </WishlistProvider>
+        </CartProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>

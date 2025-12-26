@@ -25,7 +25,7 @@ const Index = () => {
             title="Best Sellers"
             subtitle="Our most popular products loved by customers"
             products={bestSellers}
-            viewAllLink="/search?q=best-seller"
+            viewAllLink="/best-sellers"
           />
         )}
 
@@ -35,7 +35,7 @@ const Index = () => {
             title="New Arrivals"
             subtitle="Fresh additions to our collection"
             products={newArrivals}
-            viewAllLink="/search?q=new-arrival"
+            viewAllLink="/new-arrivals"
           />
         )}
 
@@ -45,7 +45,7 @@ const Index = () => {
             title="Featured Products"
             subtitle="Handpicked selections just for you"
             products={featuredProducts}
-            viewAllLink="/search?q=trending"
+            viewAllLink="/featured-products"
           />
         )}
       </main>

@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
-import { Star, ShoppingBag, Heart, ArrowRight } from "lucide-react";
-import { Product } from "@/data/categories";
+import { Star, ShoppingBag, Heart, ArrowRight, ChevronRight } from "lucide-react";
+import { Product, formatPrice } from "@/data/categories";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useWishlist } from "@/contexts/WishlistContext";
@@ -19,11 +19,14 @@ const ProductSection = ({ title, subtitle, products, viewAllLink }: ProductSecti
 
   if (products.length === 0) return null;
 
+  // Show only first 4 products
+  const displayedProducts = products.slice(0, 4);
+
   return (
     <section className="py-12 md:py-16 bg-background">
       <div className="container mx-auto px-4">
         {/* Section Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="mb-8">
           <div>
             <h2 className="font-display text-3xl md:text-4xl font-semibold text-foreground mb-2">
               {title}
@@ -34,20 +37,11 @@ const ProductSection = ({ title, subtitle, products, viewAllLink }: ProductSecti
               </p>
             )}
           </div>
-          {viewAllLink && (
-            <Link
-              to={viewAllLink}
-              className="hidden md:flex items-center gap-2 text-primary hover:text-primary/80 font-medium transition-colors"
-            >
-              View All
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          )}
         </div>
 
-        {/* Products Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {products.map((product, index) => (
+        {/* Products Grid with View More Button */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 relative">
+          {displayedProducts.map((product, index) => (
             <Card
               key={product.id}
               className="group bg-card rounded-2xl overflow-hidden shadow-soft hover:shadow-hover transition-all duration-300 animate-fade-in"
@@ -122,15 +116,15 @@ const ProductSection = ({ title, subtitle, products, viewAllLink }: ProductSecti
                   {product.discountPrice ? (
                     <>
                       <span className="text-xl font-semibold text-foreground">
-                        ${product.discountPrice.toFixed(2)}
+                        {formatPrice(product.discountPrice)}
                       </span>
                       <span className="text-sm text-muted-foreground line-through">
-                        ${product.price.toFixed(2)}
+                        {formatPrice(product.price)}
                       </span>
                     </>
                   ) : (
                     <span className="text-xl font-semibold text-foreground">
-                      ${product.price.toFixed(2)}
+                      {formatPrice(product.price)}
                     </span>
                   )}
                 </div>
@@ -146,20 +140,20 @@ const ProductSection = ({ title, subtitle, products, viewAllLink }: ProductSecti
               </CardContent>
             </Card>
           ))}
+          
+          {/* Circular View More Button - Beside the cards */}
+          {viewAllLink && products.length > 4 && (
+            <div className="flex items-center justify-center">
+              <Link
+                to={viewAllLink}
+                className="group flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground transition-all duration-300 hover:scale-110 shadow-lg hover:shadow-xl"
+                title="View More"
+              >
+                <ChevronRight className="h-6 w-6 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </div>
+          )}
         </div>
-
-        {/* Mobile View All Link */}
-        {viewAllLink && (
-          <div className="mt-8 text-center md:hidden">
-            <Link
-              to={viewAllLink}
-              className="inline-flex items-center gap-2 text-primary hover:text-primary/80 font-medium transition-colors"
-            >
-              View All
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-        )}
       </div>
     </section>
   );

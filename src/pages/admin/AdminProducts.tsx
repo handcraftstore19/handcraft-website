@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,9 +28,11 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Pencil, Trash2, Search, Package } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Package, Upload, X } from 'lucide-react';
 import { categories, formatPrice, Product } from '@/data/categories';
 import { useToast } from '@/hooks/use-toast';
+import { productService } from '@/services/firestoreService';
+import { compressImageToBase64, validateImageFile, formatFileSize } from '@/lib/imageCompressor';
 
 const tagOptions = [
   { value: 'best-seller', label: 'Best Seller', color: 'bg-green-100 text-green-800' },
@@ -61,9 +63,36 @@ const AdminProducts = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const allProducts = getAllProducts();
+  // Load products from Firestore
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  const loadProducts = async () => {
+    try {
+      setLoading(true);
+      const firestoreProducts = await productService.getAll();
+      setProducts(firestoreProducts);
+    } catch (error) {
+      console.error('Error loading products:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load products. Using local data.",
+        variant: "destructive",
+      });
+      // Fallback to local data
+      setProducts(getAllProducts());
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Merge Firestore products with local products for display
+  const allProducts = [...products, ...getAllProducts()];
   
   const filteredProducts = allProducts.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -71,36 +100,146 @@ const AdminProducts = () => {
     return matchesSearch && matchesCategory;
   });
 
-  const handleSaveProduct = () => {
-    toast({
-      title: "Product Saved",
-      description: "Product has been saved successfully. Firebase integration pending.",
-    });
-    setIsAddDialogOpen(false);
-    setEditingProduct(null);
+  const handleSaveProduct = async (formData: any) => {
+    try {
+      const productData: Omit<Product, 'id'> = {
+        name: formData.name,
+        price: parseFloat(formData.price),
+        discountPrice: formData.discountPrice ? parseFloat(formData.discountPrice) : undefined,
+        image: formData.image,
+        rating: formData.rating || 0,
+        reviews: formData.reviews || 0,
+        description: formData.description,
+        features: formData.features.split('\n').filter((f: string) => f.trim()),
+        tags: formData.tags,
+        stock: parseInt(formData.stock),
+        categoryId: parseInt(formData.categoryId),
+        subcategoryId: parseInt(formData.subcategoryId),
+      };
+
+      if (editingProduct) {
+        await productService.update(editingProduct.id, productData);
+        toast({
+          title: "Product Updated",
+          description: "Product has been updated successfully.",
+        });
+      } else {
+        await productService.create(productData);
+        toast({
+          title: "Product Created",
+          description: "Product has been created successfully.",
+        });
+      }
+
+      await loadProducts();
+      setIsAddDialogOpen(false);
+      setEditingProduct(null);
+    } catch (error) {
+      console.error('Error saving product:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save product. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleDeleteProduct = (productId: number) => {
-    toast({
-      title: "Product Deleted",
-      description: "Product has been deleted. Firebase integration pending.",
-    });
+  const handleDeleteProduct = async (productId: number) => {
+    if (!confirm('Are you sure you want to delete this product?')) {
+      return;
+    }
+
+    try {
+      await productService.delete(productId);
+      toast({
+        title: "Product Deleted",
+        description: "Product has been deleted successfully.",
+      });
+      await loadProducts();
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete product. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const ProductForm = ({ product }: { product?: Product | null }) => {
     const [formCategory, setFormCategory] = useState(product?.categoryId?.toString() || '');
     const [formSubcategory, setFormSubcategory] = useState(product?.subcategoryId?.toString() || '');
     const [selectedTags, setSelectedTags] = useState<string[]>(product?.tags || []);
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<string>(product?.image || '');
+    const [compressing, setCompressing] = useState(false);
 
     const selectedCategoryData = categories.find(c => c.id.toString() === formCategory);
 
+    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      // Validate file
+      const validation = validateImageFile(file);
+      if (!validation.valid) {
+        toast({
+          title: "Invalid Image",
+          description: validation.error,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setImageFile(file);
+      setCompressing(true);
+
+      try {
+        // Compress and convert to base64
+        const result = await compressImageToBase64(file);
+        setImagePreview(result.base64);
+        toast({
+          title: "Image Compressed",
+          description: `Compressed from ${formatFileSize(result.originalSize)} to ${formatFileSize(result.compressedSize)}`,
+        });
+      } catch (error) {
+        console.error('Error compressing image:', error);
+        toast({
+          title: "Error",
+          description: "Failed to compress image. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setCompressing(false);
+      }
+    };
+
+    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      const form = e.currentTarget;
+      const formData = {
+        name: (form.querySelector('#name') as HTMLInputElement)?.value,
+        price: (form.querySelector('#price') as HTMLInputElement)?.value,
+        discountPrice: (form.querySelector('#discountPrice') as HTMLInputElement)?.value,
+        stock: (form.querySelector('#stock') as HTMLInputElement)?.value,
+        image: imagePreview || (form.querySelector('#image') as HTMLInputElement)?.value,
+        description: (form.querySelector('#description') as HTMLTextAreaElement)?.value,
+        features: (form.querySelector('#features') as HTMLTextAreaElement)?.value,
+        tags: selectedTags,
+        categoryId: formCategory,
+        subcategoryId: formSubcategory,
+      };
+      handleSaveProduct(formData);
+    };
+
     return (
-      <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2">
-            <Label htmlFor="name">Product Name</Label>
-            <Input id="name" defaultValue={product?.name} placeholder="Enter product name" />
-          </div>
+      <form onSubmit={handleSubmit}>
+        <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <Label htmlFor="name">Product Name</Label>
+              <Input id="name" defaultValue={product?.name} placeholder="Enter product name" required />
+            </div>
 
           <div>
             <Label htmlFor="category">Category</Label>
@@ -149,9 +288,55 @@ const AdminProducts = () => {
             <Input id="stock" type="number" defaultValue={product?.stock} placeholder="0" />
           </div>
 
-          <div>
-            <Label htmlFor="image">Image URL</Label>
-            <Input id="image" defaultValue={product?.image} placeholder="https://..." />
+          <div className="col-span-2">
+            <Label htmlFor="image">Product Image</Label>
+            <div className="space-y-2">
+              {imagePreview && (
+                <div className="relative w-32 h-32 border rounded-lg overflow-hidden">
+                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-1 right-1 h-6 w-6"
+                    onClick={() => {
+                      setImagePreview('');
+                      setImageFile(null);
+                    }}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Label
+                  htmlFor="image-upload"
+                  className="flex items-center justify-center gap-2 px-4 py-2 border rounded-md cursor-pointer hover:bg-muted"
+                >
+                  <Upload className="h-4 w-4" />
+                  {compressing ? 'Compressing...' : imageFile ? 'Change Image' : 'Upload Image'}
+                </Label>
+                <Input
+                  id="image-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  disabled={compressing}
+                  className="hidden"
+                />
+                {!imagePreview && (
+                  <Input
+                    id="image-url"
+                    placeholder="Or enter image URL"
+                    defaultValue={product?.image}
+                    onChange={(e) => setImagePreview(e.target.value)}
+                  />
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Upload an image (max 1MB) or enter an image URL
+              </p>
+            </div>
           </div>
 
           <div className="col-span-2">
@@ -206,18 +391,25 @@ const AdminProducts = () => {
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={() => {
-            setIsAddDialogOpen(false);
-            setEditingProduct(null);
-          }}>
-            Cancel
-          </Button>
-          <Button onClick={handleSaveProduct} className="bg-accent hover:bg-accent/90">
-            {product ? 'Update Product' : 'Add Product'}
-          </Button>
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsAddDialogOpen(false);
+                setEditingProduct(null);
+                setImagePreview('');
+                setImageFile(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" className="bg-accent hover:bg-accent/90">
+              {product ? 'Update Product' : 'Add Product'}
+            </Button>
+          </div>
         </div>
-      </div>
+      </form>
     );
   };
 

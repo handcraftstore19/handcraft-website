@@ -15,6 +15,7 @@ import { categories } from "@/data/categories";
 import { useStore } from "@/contexts/StoreContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWishlist } from "@/contexts/WishlistContext";
+import { useCart } from "@/contexts/CartContext";
 import { getSearchSuggestions } from "@/lib/searchUtils";
 import * as Icons from "lucide-react";
 
@@ -24,13 +25,14 @@ const getIcon = (iconName: string) => {
 };
 
 const Header = () => {
-  const [cartCount] = useState(3);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<{ type: 'product' | 'category'; name: string; id: number; image?: string }[]>([]);
   const { selectedStore, setShowStoreSelector } = useStore();
   const { user, logout, isAdmin } = useAuth();
   const { wishlist } = useWishlist();
+  const { getItemCount } = useCart();
+  const cartCount = getItemCount();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -236,29 +238,37 @@ const Header = () => {
               <Search className="h-5 w-5 text-foreground" />
             </button>
 
-            {/* Wishlist */}
-            <Link
-              to="/profile?tab=wishlist"
-              className="relative p-2.5 rounded-full hover:bg-secondary transition-colors duration-200"
-              title="Wishlist"
-            >
-              <Heart className="h-5 w-5 text-foreground" />
-              {wishlist.length > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs font-medium flex items-center justify-center">
-                  {wishlist.length}
-                </span>
-              )}
-            </Link>
+            {/* Wishlist - Only show when logged in */}
+            {user && (
+              <Link
+                to="/profile?tab=wishlist"
+                className="relative p-2.5 rounded-full hover:bg-secondary transition-colors duration-200"
+                title="Wishlist"
+              >
+                <Heart className="h-5 w-5 text-foreground" />
+                {wishlist.length > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs font-medium flex items-center justify-center">
+                    {wishlist.length}
+                  </span>
+                )}
+              </Link>
+            )}
 
-            {/* Cart */}
-            <button className="relative p-2.5 rounded-full hover:bg-secondary transition-colors duration-200">
-              <ShoppingBag className="h-5 w-5 text-foreground" />
-              {cartCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs font-medium flex items-center justify-center">
-                  {cartCount}
-                </span>
-              )}
-            </button>
+            {/* Cart - Only show when logged in */}
+            {user && (
+              <Link
+                to="/cart"
+                className="relative p-2.5 rounded-full hover:bg-secondary transition-colors duration-200"
+                title="Shopping Cart"
+              >
+                <ShoppingBag className="h-5 w-5 text-foreground" />
+                {cartCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs font-medium flex items-center justify-center">
+                    {cartCount}
+                  </span>
+                )}
+              </Link>
+            )}
 
             {/* User Menu */}
             {user ? (
