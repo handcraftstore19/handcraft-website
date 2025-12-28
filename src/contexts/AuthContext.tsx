@@ -173,6 +173,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return true;
     } catch (error: any) {
       console.error('Google sign-in error:', error);
+      
+      // Handle unauthorized domain error specifically
+      if (error.code === 'auth/unauthorized-domain') {
+        const currentDomain = window.location.hostname;
+        throw new Error(
+          `This domain (${currentDomain}) is not authorized for Google Sign-In. ` +
+          `Please add it to Firebase Console → Authentication → Settings → Authorized domains. ` +
+          `Or contact the administrator to fix this issue.`
+        );
+      }
+      
+      // Handle other common errors
+      if (error.code === 'auth/popup-closed-by-user') {
+        throw new Error('Sign-in popup was closed. Please try again.');
+      }
+      
+      if (error.code === 'auth/popup-blocked') {
+        throw new Error('Popup was blocked by your browser. Please allow popups and try again.');
+      }
+      
       throw new Error(error.message || 'Failed to sign in with Google');
     }
   };

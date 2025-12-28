@@ -1,5 +1,5 @@
 import { stores, useStore } from '@/contexts/StoreContext';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { MapPin } from 'lucide-react';
 
 const StoreSelector = () => {
@@ -37,9 +37,9 @@ const StoreSelector = () => {
             <MapPin className="inline-block w-6 h-6 mr-2 text-accent" />
             Select Your Store
           </DialogTitle>
-          <p className="text-center text-muted-foreground mt-2">
+          <DialogDescription className="text-center mt-2">
             Choose your nearest HandyCraft store location
-          </p>
+          </DialogDescription>
         </DialogHeader>
         
         <div className="grid gap-4 mt-6">
