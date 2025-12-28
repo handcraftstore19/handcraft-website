@@ -7,33 +7,25 @@ const StoreSelector = () => {
 
   const storeIcons: Record<string, JSX.Element> = {
     hyderabad: (
-      <svg viewBox="0 0 100 100" className="w-16 h-16">
-        <path d="M50 10 L30 40 L30 80 L70 80 L70 40 Z" fill="currentColor" opacity="0.3"/>
-        <path d="M35 50 L35 75 M65 50 L65 75" stroke="currentColor" strokeWidth="3" fill="none"/>
-        <circle cx="50" cy="25" r="8" fill="currentColor"/>
-        <path d="M20 80 L80 80" stroke="currentColor" strokeWidth="4"/>
-        <path d="M25 40 L25 80 M75 40 L75 80" stroke="currentColor" strokeWidth="3"/>
-        <path d="M40 40 L40 55 M60 40 L60 55" stroke="currentColor" strokeWidth="2"/>
-      </svg>
+      <img 
+        src="/assets/icons/hyderabad.png" 
+        alt="Hyderabad" 
+        className="w-16 h-16 object-contain"
+      />
     ),
     vizag: (
-      <svg viewBox="0 0 100 100" className="w-16 h-16">
-        <path d="M0 70 Q25 55 50 70 Q75 85 100 70 L100 100 L0 100 Z" fill="currentColor" opacity="0.3"/>
-        <circle cx="75" cy="25" r="12" fill="currentColor" opacity="0.8"/>
-        <path d="M10 85 L15 75 L20 85 M30 80 L35 70 L40 80" stroke="currentColor" strokeWidth="2" fill="none"/>
-        <ellipse cx="60" cy="60" rx="8" ry="4" fill="currentColor" opacity="0.5"/>
-      </svg>
+      <img 
+        src="/assets/icons/vizag.png" 
+        alt="Visakhapatnam" 
+        className="w-16 h-16 object-contain"
+      />
     ),
     warangal: (
-      <svg viewBox="0 0 100 100" className="w-16 h-16">
-        <rect x="25" y="40" width="50" height="50" fill="currentColor" opacity="0.3"/>
-        <rect x="30" y="45" width="15" height="20" fill="currentColor" opacity="0.5"/>
-        <rect x="55" y="45" width="15" height="20" fill="currentColor" opacity="0.5"/>
-        <rect x="40" y="70" width="20" height="20" fill="currentColor" opacity="0.6"/>
-        <path d="M25 40 L50 15 L75 40" fill="currentColor" opacity="0.4"/>
-        <circle cx="50" cy="30" r="5" fill="currentColor"/>
-        <rect x="35" y="5" width="30" height="5" fill="currentColor" opacity="0.7"/>
-      </svg>
+      <img 
+        src="/assets/icons/warangal.png" 
+        alt="Warangal" 
+        className="w-16 h-16 object-contain"
+      />
     )
   };
 
