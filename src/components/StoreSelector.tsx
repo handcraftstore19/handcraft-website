@@ -10,21 +10,21 @@ const StoreSelector = () => {
       <img 
         src="/assets/icons/hyderabad.png" 
         alt="Hyderabad" 
-        className="w-16 h-16 object-contain"
+        className="w-full h-full object-cover rounded-lg"
       />
     ),
     vizag: (
       <img 
         src="/assets/icons/vizag.png" 
         alt="Visakhapatnam" 
-        className="w-16 h-16 object-contain"
+        className="w-full h-full object-cover rounded-lg"
       />
     ),
     warangal: (
       <img 
         src="/assets/icons/warangal.png" 
         alt="Warangal" 
-        className="w-16 h-16 object-contain"
+        className="w-full h-full object-cover rounded-lg"
       />
     )
   };
@@ -55,7 +55,7 @@ const StoreSelector = () => {
                 }
               `}
             >
-              <div className="flex-shrink-0 w-20 h-20 flex items-center justify-center rounded-lg bg-accent/10 text-accent group-hover:bg-accent/20 transition-colors">
+              <div className="flex-shrink-0 w-20 h-20 overflow-hidden rounded-lg">
                 {storeIcons[store.id]}
               </div>
               
