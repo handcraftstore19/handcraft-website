@@ -6,6 +6,7 @@ export interface Store {
   city: string;
   icon: string;
   landmark: string;
+  whatsappNumber: string;
 }
 
 export const stores: Store[] = [
@@ -14,21 +15,24 @@ export const stores: Store[] = [
     name: 'HandyCraft Hyderabad',
     city: 'Hyderabad',
     icon: '🕌',
-    landmark: 'Charminar'
+    landmark: 'Charminar',
+    whatsappNumber: '+919876543210' // Replace with actual WhatsApp number
   },
   {
     id: 'warangal',
     name: 'HandyCraft Warangal',
     city: 'Warangal',
     icon: '🛕',
-    landmark: 'Thousand Pillar Temple'
+    landmark: 'Thousand Pillar Temple',
+    whatsappNumber: '+919876543211' // Replace with actual WhatsApp number
   }, 
   {
     id: 'vizag',
     name: 'HandyCraft Vizag',
     city: 'Visakhapatnam',
     icon: '🏖️',
-    landmark: 'RK Beach'
+    landmark: 'RK Beach',
+    whatsappNumber: '+919876543212' // Replace with actual WhatsApp number
   }
 ];
 

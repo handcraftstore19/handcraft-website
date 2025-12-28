@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
-import { categories } from "@/data/categories";
+import { categories, StoreAvailability } from "@/data/categories";
 import * as Icons from "lucide-react";
+import { useStore } from "@/contexts/StoreContext";
 
 const getIcon = (iconName: string) => {
   const IconComponent = (Icons as any)[iconName] || Icons.Award;
@@ -8,6 +9,24 @@ const getIcon = (iconName: string) => {
 };
 
 const CategoriesSection = () => {
+  const { selectedStore } = useStore();
+  const storeId = selectedStore?.id || null;
+
+  // Helper function to check if category is available at store
+  const isCategoryAvailable = (category: { availableAt?: StoreAvailability }) => {
+    if (!storeId) return true;
+    const defaultAvailability: StoreAvailability = {
+      hyderabad: true,
+      vizag: false,
+      warangal: false
+    };
+    const availability = category.availableAt || defaultAvailability;
+    return availability[storeId as keyof StoreAvailability] ?? false;
+  };
+
+  // Filter categories by store availability
+  const availableCategories = categories.filter(isCategoryAvailable);
+
   return (
     <section className="py-16 md:py-24 bg-background">
       <div className="container mx-auto px-4">
@@ -23,7 +42,7 @@ const CategoriesSection = () => {
 
         {/* Categories Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-          {categories.map((category, index) => {
+          {availableCategories.map((category, index) => {
             const IconComponent = getIcon(category.iconName);
             return (
               <Link

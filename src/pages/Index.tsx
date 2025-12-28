@@ -4,11 +4,14 @@ import CategoriesSection from "@/components/CategoriesSection";
 import ProductSection from "@/components/ProductSection";
 import Footer from "@/components/Footer";
 import { getBestSellerProducts, getNewArrivalProducts, getFeaturedProducts } from "@/lib/searchUtils";
+import { useStore } from "@/contexts/StoreContext";
 
 const Index = () => {
-  const bestSellers = getBestSellerProducts();
-  const newArrivals = getNewArrivalProducts();
-  const featuredProducts = getFeaturedProducts();
+  const { selectedStore } = useStore();
+  const storeId = selectedStore?.id || null;
+  const bestSellers = getBestSellerProducts(storeId);
+  const newArrivals = getNewArrivalProducts(storeId);
+  const featuredProducts = getFeaturedProducts(storeId);
 
   return (
     <div className="min-h-screen flex flex-col">

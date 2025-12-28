@@ -2,7 +2,8 @@ import { useParams, Link } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { getCategoryById } from "@/data/categories";
+import { getCategoryById, StoreAvailability } from "@/data/categories";
+import { useStore } from "@/contexts/StoreContext";
 import * as Icons from "lucide-react";
 
 const getIcon = (iconName: string) => {
@@ -12,7 +13,24 @@ const getIcon = (iconName: string) => {
 
 const CategoryPage = () => {
   const { categoryId } = useParams();
+  const { selectedStore } = useStore();
+  const storeId = selectedStore?.id || null;
   const category = getCategoryById(Number(categoryId));
+
+  // Helper function to check availability
+  const isAvailable = (item: { availableAt?: StoreAvailability }) => {
+    if (!storeId) return true;
+    const defaultAvailability: StoreAvailability = {
+      hyderabad: true,
+      vizag: false,
+      warangal: false
+    };
+    const availability = item.availableAt || defaultAvailability;
+    return availability[storeId as keyof StoreAvailability] ?? false;
+  };
+
+  // Filter subcategories by store availability
+  const availableSubcategories = category?.subcategories.filter(sub => isAvailable(sub)) || [];
 
   if (!category) {
     return (
@@ -83,7 +101,7 @@ const CategoryPage = () => {
             </h2>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {category.subcategories.map((subcategory, index) => (
+              {availableSubcategories.map((subcategory, index) => (
                 <Link
                   key={subcategory.id}
                   to={`/category/${category.id}/subcategory/${subcategory.id}`}

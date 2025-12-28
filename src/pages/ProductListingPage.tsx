@@ -4,13 +4,31 @@ import { useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { getCategoryById, getSubcategoryById } from "@/data/categories";
+import { getCategoryById, getSubcategoryById, StoreAvailability } from "@/data/categories";
+import { useStore } from "@/contexts/StoreContext";
 
 const ProductListingPage = () => {
   const { categoryId, subcategoryId } = useParams();
+  const { selectedStore } = useStore();
+  const storeId = selectedStore?.id || null;
   const category = getCategoryById(Number(categoryId));
   const subcategory = getSubcategoryById(Number(categoryId), Number(subcategoryId));
   const [hoveredProduct, setHoveredProduct] = useState<number | null>(null);
+
+  // Helper function to check if product is available at store
+  const isProductAvailable = (product: { availableAt?: StoreAvailability }) => {
+    if (!storeId) return true;
+    const defaultAvailability: StoreAvailability = {
+      hyderabad: true,
+      vizag: false,
+      warangal: false
+    };
+    const availability = product.availableAt || defaultAvailability;
+    return availability[storeId as keyof StoreAvailability] ?? false;
+  };
+
+  // Filter products by store availability
+  const availableProducts = subcategory?.products.filter(isProductAvailable) || [];
 
   if (!category || !subcategory) {
     return (
@@ -59,7 +77,7 @@ const ProductListingPage = () => {
               {subcategory.name}
             </h1>
             <p className="text-muted-foreground">
-              {subcategory.products.length} products available
+              {availableProducts.length} products available
             </p>
           </div>
         </section>
@@ -67,7 +85,7 @@ const ProductListingPage = () => {
         {/* Products Grid */}
         <section className="py-12">
           <div className="container mx-auto px-4">
-            {subcategory.products.length === 0 ? (
+            {availableProducts.length === 0 ? (
               <div className="text-center py-16">
                 <p className="text-muted-foreground text-lg">No products available in this category yet.</p>
                 <Link to={`/category/${category.id}`} className="text-primary hover:underline mt-4 inline-block">
@@ -76,7 +94,7 @@ const ProductListingPage = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {subcategory.products.map((product, index) => (
+                {availableProducts.map((product, index) => (
                   <div
                     key={product.id}
                     className="group bg-card rounded-2xl overflow-hidden shadow-soft hover:shadow-hover transition-all duration-300 animate-fade-in"

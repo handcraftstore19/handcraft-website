@@ -42,6 +42,7 @@ import AdminFinance from "./pages/admin/AdminFinance";
 import AdminCarousels from "./pages/admin/AdminCarousels";
 import AdminSettings from "./pages/admin/AdminSettings";
 import StoreSelector from "./components/StoreSelector";
+import WhatsAppFAB from "./components/WhatsAppFAB";
 
 const queryClient = new QueryClient();
 
@@ -56,6 +57,7 @@ const App = () => (
             <Toaster />
             <Sonner />
             <StoreSelector />
+            <WhatsAppFAB />
             <BrowserRouter>
               <Routes>
                 <Route path="/" element={<Index />} />

@@ -29,7 +29,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, Pencil, Trash2, Search, Package, Upload, X } from 'lucide-react';
-import { categories, formatPrice, Product } from '@/data/categories';
+import { categories, formatPrice, Product, StoreAvailability } from '@/data/categories';
 import { useToast } from '@/hooks/use-toast';
 import { productService } from '@/services/firestoreService';
 import { compressImageToBase64, validateImageFile, formatFileSize } from '@/lib/imageCompressor';
@@ -115,6 +115,11 @@ const AdminProducts = () => {
         stock: parseInt(formData.stock),
         categoryId: parseInt(formData.categoryId),
         subcategoryId: parseInt(formData.subcategoryId),
+        availableAt: formData.availableAt || {
+          hyderabad: true,
+          vizag: false,
+          warangal: false
+        },
       };
 
       if (editingProduct) {
@@ -173,6 +178,13 @@ const AdminProducts = () => {
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string>(product?.image || '');
     const [compressing, setCompressing] = useState(false);
+    const [storeAvailability, setStoreAvailability] = useState<StoreAvailability>(
+      product?.availableAt || {
+        hyderabad: true,
+        vizag: false,
+        warangal: false
+      }
+    );
 
     const selectedCategoryData = categories.find(c => c.id.toString() === formCategory);
 
@@ -228,6 +240,7 @@ const AdminProducts = () => {
         tags: selectedTags,
         categoryId: formCategory,
         subcategoryId: formSubcategory,
+        availableAt: storeAvailability,
       };
       handleSaveProduct(formData);
     };
@@ -388,6 +401,81 @@ const AdminProducts = () => {
               placeholder="Feature 1&#10;Feature 2&#10;Feature 3"
               rows={4}
             />
+          </div>
+
+          <div className="col-span-2">
+            <Label>Product Available At Stores</Label>
+            <div className="space-y-3 mt-2 p-4 border rounded-lg bg-muted/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">Hyderabad</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs ${storeAvailability.hyderabad ? 'text-green-600' : 'text-muted-foreground'}`}>
+                    {storeAvailability.hyderabad ? 'ON' : 'OFF'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setStoreAvailability({ ...storeAvailability, hyderabad: !storeAvailability.hyderabad })}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      storeAvailability.hyderabad ? 'bg-primary' : 'bg-muted'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        storeAvailability.hyderabad ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">Visakhapatnam</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs ${storeAvailability.vizag ? 'text-green-600' : 'text-muted-foreground'}`}>
+                    {storeAvailability.vizag ? 'ON' : 'OFF'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setStoreAvailability({ ...storeAvailability, vizag: !storeAvailability.vizag })}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      storeAvailability.vizag ? 'bg-primary' : 'bg-muted'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        storeAvailability.vizag ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">Warangal</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs ${storeAvailability.warangal ? 'text-green-600' : 'text-muted-foreground'}`}>
+                    {storeAvailability.warangal ? 'ON' : 'OFF'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setStoreAvailability({ ...storeAvailability, warangal: !storeAvailability.warangal })}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      storeAvailability.warangal ? 'bg-primary' : 'bg-muted'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        storeAvailability.warangal ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 

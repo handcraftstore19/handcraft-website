@@ -1,4 +1,43 @@
-import { Product, categories } from '@/data/categories';
+import { Product, categories, StoreAvailability } from '@/data/categories';
+
+// Helper function to check if product is available at store
+function isProductAvailableAtStore(product: Product, storeId: string | null): boolean {
+  if (!storeId) return true; // If no store selected, show all products
+  
+  // Default availability: Hyderabad ON, others OFF
+  const defaultAvailability: StoreAvailability = {
+    hyderabad: true,
+    vizag: false,
+    warangal: false
+  };
+  
+  const availability = product.availableAt || defaultAvailability;
+  return availability[storeId as keyof StoreAvailability] ?? false;
+}
+
+// Helper function to check if category is available at store
+function isCategoryAvailableAtStore(category: { availableAt?: StoreAvailability }, storeId: string | null): boolean {
+  if (!storeId) return true;
+  const defaultAvailability: StoreAvailability = {
+    hyderabad: true,
+    vizag: false,
+    warangal: false
+  };
+  const availability = category.availableAt || defaultAvailability;
+  return availability[storeId as keyof StoreAvailability] ?? false;
+}
+
+// Helper function to check if subcategory is available at store
+function isSubcategoryAvailableAtStore(subcategory: { availableAt?: StoreAvailability }, storeId: string | null): boolean {
+  if (!storeId) return true;
+  const defaultAvailability: StoreAvailability = {
+    hyderabad: true,
+    vizag: false,
+    warangal: false
+  };
+  const availability = subcategory.availableAt || defaultAvailability;
+  return availability[storeId as keyof StoreAvailability] ?? false;
+}
 
 // Levenshtein distance for typo tolerance
 function levenshteinDistance(str1: string, str2: string): number {
@@ -40,11 +79,17 @@ function similarity(str1: string, str2: string): number {
 }
 
 // Get all products from all categories
-export function getAllProducts(): Product[] {
+export function getAllProducts(storeId: string | null = null): Product[] {
   const allProducts: Product[] = [];
   categories.forEach(category => {
+    if (!isCategoryAvailableAtStore(category, storeId)) return;
     category.subcategories.forEach(subcategory => {
-      allProducts.push(...subcategory.products);
+      if (!isSubcategoryAvailableAtStore(subcategory, storeId)) return;
+      subcategory.products.forEach(product => {
+        if (isProductAvailableAtStore(product, storeId)) {
+          allProducts.push(product);
+        }
+      });
     });
   });
   return allProducts;
@@ -57,12 +102,14 @@ export function searchProducts(query: string, filters?: {
   maxPrice?: number;
   minRating?: number;
   tags?: string[];
+  storeId?: string | null;
 }): Product[] {
+  const storeId = filters?.storeId ?? null;
   if (!query.trim()) {
-    return getAllProducts();
+    return getAllProducts(storeId);
   }
 
-  const allProducts = getAllProducts();
+  const allProducts = getAllProducts(storeId);
   const queryLower = query.toLowerCase().trim();
   const queryWords = queryLower.split(/\s+/);
 
@@ -149,8 +196,8 @@ export function searchProducts(query: string, filters?: {
 }
 
 // Get trending products (best sellers, new arrivals, trending)
-export function getTrendingProducts(): Product[] {
-  const allProducts = getAllProducts();
+export function getTrendingProducts(storeId: string | null = null): Product[] {
+  const allProducts = getAllProducts(storeId);
   
   // Prioritize products with tags
   const trending = allProducts
@@ -184,9 +231,11 @@ export function getTrendingProducts(): Product[] {
 
 // Get search suggestions (products and categories)
 export function getSearchSuggestions(query: string): { type: 'product' | 'category'; name: string; id: number; image?: string }[] {
+  // Note: getSearchSuggestions doesn't filter by store to show all suggestions
+  // Store filtering happens at the product listing level
   if (!query.trim() || query.length < 1) {
     // Return trending products when empty
-    return getTrendingProducts().slice(0, 6).map(p => ({
+    return getTrendingProducts(null).slice(0, 6).map(p => ({
       type: 'product' as const,
       name: p.name,
       id: p.id,
@@ -194,7 +243,7 @@ export function getSearchSuggestions(query: string): { type: 'product' | 'catego
     }));
   }
 
-  const allProducts = getAllProducts();
+  const allProducts = getAllProducts(null);
   const suggestions: { type: 'product' | 'category'; name: string; id: number; image?: string }[] = [];
   const queryLower = query.toLowerCase();
   const seen = new Set<string>();
@@ -230,8 +279,8 @@ export function getSearchSuggestions(query: string): { type: 'product' | 'catego
 }
 
 // Get best seller products
-export function getBestSellerProducts(): Product[] {
-  const allProducts = getAllProducts();
+export function getBestSellerProducts(storeId: string | null = null): Product[] {
+  const allProducts = getAllProducts(storeId);
   return allProducts
     .filter(p => p.tags?.includes('best-seller'))
     .sort((a, b) => {
@@ -243,8 +292,8 @@ export function getBestSellerProducts(): Product[] {
 }
 
 // Get new arrival products
-export function getNewArrivalProducts(): Product[] {
-  const allProducts = getAllProducts();
+export function getNewArrivalProducts(storeId: string | null = null): Product[] {
+  const allProducts = getAllProducts(storeId);
   return allProducts
     .filter(p => p.tags?.includes('new-arrival'))
     .sort((a, b) => {
@@ -256,8 +305,8 @@ export function getNewArrivalProducts(): Product[] {
 }
 
 // Get featured products (trending or high-rated)
-export function getFeaturedProducts(): Product[] {
-  const allProducts = getAllProducts();
+export function getFeaturedProducts(storeId: string | null = null): Product[] {
+  const allProducts = getAllProducts(storeId);
   return allProducts
     .filter(p => p.tags?.includes('trending') || (!p.tags && p.rating >= 4.5))
     .sort((a, b) => {

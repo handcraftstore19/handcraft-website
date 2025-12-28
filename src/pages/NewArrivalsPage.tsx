@@ -9,9 +9,12 @@ import { Product, formatPrice } from '@/data/categories';
 import { getNewArrivalProducts } from '@/lib/searchUtils';
 import { useWishlist } from '@/contexts/WishlistContext';
 import { useCart } from '@/contexts/CartContext';
+import { useStore } from '@/contexts/StoreContext';
 
 const NewArrivalsPage = () => {
-  const allProducts = getNewArrivalProducts();
+  const { selectedStore } = useStore();
+  const storeId = selectedStore?.id || null;
+  const allProducts = getNewArrivalProducts(storeId);
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { addToCart } = useCart();
   const [hoveredProduct, setHoveredProduct] = useState<number | null>(null);

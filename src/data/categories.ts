@@ -1,3 +1,9 @@
+export interface StoreAvailability {
+  hyderabad: boolean;
+  vizag: boolean;
+  warangal: boolean;
+}
+
 export interface Product {
   id: number;
   name: string;
@@ -12,6 +18,7 @@ export interface Product {
   stock: number;
   categoryId: number;
   subcategoryId: number;
+  availableAt?: StoreAvailability;
 }
 
 export interface Subcategory {
@@ -20,6 +27,7 @@ export interface Subcategory {
   image: string;
   productCount: number;
   products: Product[];
+  availableAt?: StoreAvailability;
 }
 
 export interface Category {
@@ -29,6 +37,7 @@ export interface Category {
   image: string;
   description: string;
   subcategories: Subcategory[];
+  availableAt?: StoreAvailability;
 }
 
 export const categories: Category[] = [

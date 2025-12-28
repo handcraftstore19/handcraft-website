@@ -11,13 +11,23 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Plus, Pencil, Trash2, FolderTree, Image as ImageIcon } from 'lucide-react';
-import { categories } from '@/data/categories';
+import { categories, StoreAvailability } from '@/data/categories';
 import { useToast } from '@/hooks/use-toast';
 
 const AdminCategories = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isSubcategoryDialogOpen, setIsSubcategoryDialogOpen] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [categoryStoreAvailability, setCategoryStoreAvailability] = useState<StoreAvailability>({
+    hyderabad: true,
+    vizag: false,
+    warangal: false
+  });
+  const [subcategoryStoreAvailability, setSubcategoryStoreAvailability] = useState<StoreAvailability>({
+    hyderabad: true,
+    vizag: false,
+    warangal: false
+  });
   const { toast } = useToast();
 
   const handleSaveCategory = () => {
@@ -83,6 +93,74 @@ const AdminCategories = () => {
               <div>
                 <Label htmlFor="catDesc">Description</Label>
                 <Input id="catDesc" placeholder="Category description" />
+              </div>
+              <div>
+                <Label>Category Available At Stores</Label>
+                <div className="space-y-3 mt-2 p-4 border rounded-lg bg-muted/30">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Hyderabad</span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs ${categoryStoreAvailability.hyderabad ? 'text-green-600' : 'text-muted-foreground'}`}>
+                        {categoryStoreAvailability.hyderabad ? 'ON' : 'OFF'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setCategoryStoreAvailability({ ...categoryStoreAvailability, hyderabad: !categoryStoreAvailability.hyderabad })}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          categoryStoreAvailability.hyderabad ? 'bg-primary' : 'bg-muted'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            categoryStoreAvailability.hyderabad ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Visakhapatnam</span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs ${categoryStoreAvailability.vizag ? 'text-green-600' : 'text-muted-foreground'}`}>
+                        {categoryStoreAvailability.vizag ? 'ON' : 'OFF'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setCategoryStoreAvailability({ ...categoryStoreAvailability, vizag: !categoryStoreAvailability.vizag })}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          categoryStoreAvailability.vizag ? 'bg-primary' : 'bg-muted'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            categoryStoreAvailability.vizag ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Warangal</span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs ${categoryStoreAvailability.warangal ? 'text-green-600' : 'text-muted-foreground'}`}>
+                        {categoryStoreAvailability.warangal ? 'ON' : 'OFF'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setCategoryStoreAvailability({ ...categoryStoreAvailability, warangal: !categoryStoreAvailability.warangal })}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          categoryStoreAvailability.warangal ? 'bg-primary' : 'bg-muted'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            categoryStoreAvailability.warangal ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
               <div className="flex justify-end gap-2 pt-4">
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
@@ -172,6 +250,74 @@ const AdminCategories = () => {
                       <div>
                         <Label htmlFor="subImage">Cover Image URL</Label>
                         <Input id="subImage" placeholder="https://..." />
+                      </div>
+                      <div>
+                        <Label>Subcategory Available At Stores</Label>
+                        <div className="space-y-3 mt-2 p-4 border rounded-lg bg-muted/30">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">Hyderabad</span>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs ${subcategoryStoreAvailability.hyderabad ? 'text-green-600' : 'text-muted-foreground'}`}>
+                                {subcategoryStoreAvailability.hyderabad ? 'ON' : 'OFF'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setSubcategoryStoreAvailability({ ...subcategoryStoreAvailability, hyderabad: !subcategoryStoreAvailability.hyderabad })}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                  subcategoryStoreAvailability.hyderabad ? 'bg-primary' : 'bg-muted'
+                                }`}
+                              >
+                                <span
+                                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                    subcategoryStoreAvailability.hyderabad ? 'translate-x-6' : 'translate-x-1'
+                                  }`}
+                                />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">Visakhapatnam</span>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs ${subcategoryStoreAvailability.vizag ? 'text-green-600' : 'text-muted-foreground'}`}>
+                                {subcategoryStoreAvailability.vizag ? 'ON' : 'OFF'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setSubcategoryStoreAvailability({ ...subcategoryStoreAvailability, vizag: !subcategoryStoreAvailability.vizag })}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                  subcategoryStoreAvailability.vizag ? 'bg-primary' : 'bg-muted'
+                                }`}
+                              >
+                                <span
+                                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                    subcategoryStoreAvailability.vizag ? 'translate-x-6' : 'translate-x-1'
+                                  }`}
+                                />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">Warangal</span>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs ${subcategoryStoreAvailability.warangal ? 'text-green-600' : 'text-muted-foreground'}`}>
+                                {subcategoryStoreAvailability.warangal ? 'ON' : 'OFF'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setSubcategoryStoreAvailability({ ...subcategoryStoreAvailability, warangal: !subcategoryStoreAvailability.warangal })}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                  subcategoryStoreAvailability.warangal ? 'bg-primary' : 'bg-muted'
+                                }`}
+                              >
+                                <span
+                                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                    subcategoryStoreAvailability.warangal ? 'translate-x-6' : 'translate-x-1'
+                                  }`}
+                                />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                       <div className="flex justify-end gap-2 pt-4">
                         <Button variant="outline" onClick={() => setIsSubcategoryDialogOpen(false)}>
