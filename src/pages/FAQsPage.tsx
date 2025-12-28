@@ -44,7 +44,7 @@ const faqs = [
       },
       {
         q: 'Do you offer bulk discounts?',
-        a: 'Yes! We offer special pricing for bulk orders (25+ items). Contact our sales team at bulk@handycraft.com for a custom quote.',
+        a: 'Yes! We offer special pricing for bulk orders (25+ items). Contact our sales team at bulk@damodarhandicrafts.com for a custom quote.',
       },
       {
         q: 'What materials are used in your products?',

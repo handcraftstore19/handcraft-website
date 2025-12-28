@@ -68,7 +68,7 @@ const ContactUsPage = () => {
                 <CardContent className="pt-6 text-center">
                   <Mail className="h-8 w-8 mx-auto mb-4 text-primary" />
                   <h3 className="font-semibold mb-2">Email</h3>
-                  <p className="text-muted-foreground">support@handycraft.com</p>
+                  <p className="text-muted-foreground">support@damodarhandicrafts.com</p>
                   <p className="text-muted-foreground text-sm">We'll respond within 24 hours</p>
                 </CardContent>
               </Card>

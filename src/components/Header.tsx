@@ -90,9 +90,14 @@ const Header = () => {
       <div className="container mx-auto px-4">
         <div className="flex h-20 items-center justify-between gap-8">
           {/* Logo */}
-          <Link to="/" className="flex-shrink-0">
+          <Link to="/" className="flex-shrink-0 flex items-center gap-3">
+            <img 
+              src="/assets/logo/logo.png" 
+              alt="Damodar Handicrafts Logo" 
+              className="w-12 h-12 rounded-full object-cover border-2 border-border"
+            />
             <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground">
-              HandyCraft
+              Damodar Handicrafts
             </h1>
           </Link>
 

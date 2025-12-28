@@ -65,7 +65,7 @@ const AdminLayout = () => {
         <div className="h-16 flex items-center justify-between px-4 border-b border-border">
           {!collapsed && (
             <Link to="/admin" className="font-serif text-xl font-bold text-accent">
-              HandyCraft
+              Damodar Handicrafts
             </Link>
           )}
           <Button

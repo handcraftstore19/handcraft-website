@@ -38,7 +38,7 @@ const StoreSelector = () => {
             Select Your Store
           </DialogTitle>
           <DialogDescription className="text-center mt-2">
-            Choose your nearest HandyCraft store location
+            Choose your nearest Damodar Handicrafts store location
           </DialogDescription>
         </DialogHeader>
         
