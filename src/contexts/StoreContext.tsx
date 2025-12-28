@@ -17,18 +17,18 @@ export const stores: Store[] = [
     landmark: 'Charminar'
   },
   {
-    id: 'vizag',
-    name: 'HandyCraft Vizag',
-    city: 'Visakhapatnam',
-    icon: '🏖️',
-    landmark: 'RK Beach'
-  },
-  {
     id: 'warangal',
     name: 'HandyCraft Warangal',
     city: 'Warangal',
     icon: '🛕',
     landmark: 'Thousand Pillar Temple'
+  }, 
+  {
+    id: 'vizag',
+    name: 'HandyCraft Vizag',
+    city: 'Visakhapatnam',
+    icon: '🏖️',
+    landmark: 'RK Beach'
   }
 ];
 
