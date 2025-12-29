@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Pencil, Trash2, Search, Package, Upload, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Package, Upload, X, Copy } from 'lucide-react';
 import { categories, formatPrice, Product, StoreAvailability } from '@/data/categories';
 import { useToast } from '@/hooks/use-toast';
 import { productService } from '@/services/firestoreService';
@@ -147,6 +147,45 @@ const AdminProducts = () => {
       toast({
         title: "Error",
         description: "Failed to delete product. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDuplicateProduct = async (product: Product) => {
+    try {
+      const productData: Omit<Product, 'id'> = {
+        name: `${product.name} (Copy)`,
+        price: product.price,
+        discountPrice: product.discountPrice,
+        image: product.image,
+        rating: product.rating || 0,
+        reviews: 0, // Reset reviews for duplicate
+        description: product.description,
+        features: product.features || [],
+        tags: product.tags || [],
+        stock: product.stock,
+        categoryId: product.categoryId,
+        subcategoryId: product.subcategoryId,
+        availableAt: product.availableAt || {
+          hyderabad: true,
+          vizag: false,
+          warangal: false
+        },
+      };
+
+      await productService.create(productData);
+
+      toast({
+        title: "Success",
+        description: "Product duplicated successfully.",
+      });
+
+      await loadProducts();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to duplicate product.",
         variant: "destructive",
       });
     }
@@ -609,9 +648,17 @@ const AdminProducts = () => {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => handleDuplicateProduct(product)}
+                          title="Duplicate Product"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
                         <Dialog>
                           <DialogTrigger asChild>
-                            <Button variant="ghost" size="icon" onClick={() => setEditingProduct(product)}>
+                            <Button variant="ghost" size="icon" onClick={() => setEditingProduct(product)} title="Edit Product">
                               <Pencil className="h-4 w-4" />
                             </Button>
                           </DialogTrigger>
@@ -627,6 +674,7 @@ const AdminProducts = () => {
                           size="icon"
                           className="text-destructive hover:text-destructive"
                           onClick={() => handleDeleteProduct(product.id)}
+                          title="Delete Product"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

@@ -12,7 +12,7 @@ import {
   DialogDescription,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, FolderTree, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Layers, Loader2, Copy } from 'lucide-react';
 import { StoreAvailability, Category, Subcategory } from '@/data/categories';
 import { useToast } from '@/hooks/use-toast';
 import { categoryService, subcategoryService } from '@/services/firestoreService';
@@ -457,6 +457,90 @@ const AdminCategories = () => {
     }
   };
 
+  const handleDuplicateCategory = async (category: Category) => {
+    try {
+      // Get next ID
+      const nextId = categories.length > 0 
+        ? Math.max(...categories.map(c => c.id)) + 1 
+        : 1;
+
+      const categoryData: any = {
+        id: nextId,
+        name: `${category.name} (Copy)`,
+        iconName: String(category.iconName || ''),
+        image: String(category.image || ''),
+        description: category.description,
+        availableAt: category.availableAt || { hyderabad: true, vizag: false, warangal: false },
+      };
+
+      // Sanitize the data
+      const sanitizedData = sanitizeData(categoryData);
+      Object.keys(sanitizedData).forEach(key => {
+        if (sanitizedData[key] === undefined || sanitizedData[key] === null) {
+          delete sanitizedData[key];
+        }
+      });
+
+      await categoryService.create(sanitizedData);
+
+      toast({
+        title: "Success",
+        description: "Category duplicated successfully.",
+      });
+
+      await loadCategories();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to duplicate category.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDuplicateSubcategory = async (subcategory: Subcategory, categoryId: number) => {
+    try {
+      // Get next subcategory ID
+      const category = categories.find(c => c.id === categoryId);
+      const nextId = category && category.subcategories.length > 0
+        ? Math.max(...category.subcategories.map(s => s.id)) + 1
+        : categoryId * 100 + 1;
+
+      const subcategoryData: any = {
+        id: nextId,
+        name: `${subcategory.name} (Copy)`,
+        image: String(subcategory.image || ''),
+        iconName: String((subcategory as any).iconName || ''),
+        productCount: 0,
+        availableAt: subcategory.availableAt || { hyderabad: true, vizag: false, warangal: false },
+        categoryId: categoryId,
+      };
+
+      // Sanitize the data
+      const sanitizedData = sanitizeData(subcategoryData);
+      Object.keys(sanitizedData).forEach(key => {
+        if (sanitizedData[key] === undefined || sanitizedData[key] === null) {
+          delete sanitizedData[key];
+        }
+      });
+
+      await subcategoryService.create(sanitizedData);
+
+      toast({
+        title: "Success",
+        description: "Subcategory duplicated successfully.",
+      });
+
+      await loadCategories();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to duplicate subcategory.",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -749,7 +833,16 @@ const AdminCategories = () => {
                   <Button 
                     variant="ghost" 
                     size="icon"
+                    onClick={() => handleDuplicateCategory(category)}
+                    title="Duplicate Category"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
                     onClick={() => handleEditCategory(category)}
+                    title="Edit Category"
                   >
                     <Pencil className="h-4 w-4" />
                   </Button>
@@ -758,6 +851,7 @@ const AdminCategories = () => {
                     size="icon"
                     className="text-destructive hover:text-destructive"
                     onClick={() => handleDeleteCategory(category.id)}
+                    title="Delete Category"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -767,7 +861,7 @@ const AdminCategories = () => {
             <CardContent>
               <div className="flex items-center justify-between mb-4">
                 <h4 className="font-medium text-foreground flex items-center gap-2">
-                  <FolderTree className="h-4 w-4" />
+                  <Layers className="h-4 w-4" />
                   Subcategories
                 </h4>
                 <Dialog 
@@ -935,7 +1029,17 @@ const AdminCategories = () => {
                         variant="ghost" 
                         size="icon" 
                         className="h-8 w-8"
+                        onClick={() => handleDuplicateSubcategory(subcategory, category.id)}
+                        title="Duplicate Subcategory"
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8"
                         onClick={() => handleEditSubcategory(subcategory, category.id)}
+                        title="Edit Subcategory"
                       >
                         <Pencil className="h-3 w-3" />
                       </Button>
@@ -944,6 +1048,7 @@ const AdminCategories = () => {
                         size="icon"
                         className="h-8 w-8 text-destructive hover:text-destructive"
                         onClick={() => handleDeleteSubcategory(subcategory.id)}
+                        title="Delete Subcategory"
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>

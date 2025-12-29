@@ -9,7 +9,7 @@ import {
   BarChart3,
   Wallet,
   Image,
-  FolderTree,
+  Grid3x3,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/admin' },
   { icon: Package, label: 'Products', path: '/admin/products' },
-  { icon: FolderTree, label: 'Categories', path: '/admin/categories' },
+  { icon: Grid3x3, label: 'Categories', path: '/admin/categories' },
   { icon: Users, label: 'Users', path: '/admin/users' },
   { icon: ShoppingCart, label: 'Orders', path: '/admin/orders' },
   { icon: Star, label: 'Reviews', path: '/admin/reviews' },
