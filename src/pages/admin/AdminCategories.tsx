@@ -55,6 +55,33 @@ const AdminCategories = () => {
   
   const { toast } = useToast();
 
+  // Helper function to recursively remove File objects from data
+  const sanitizeData = (obj: any): any => {
+    if (obj === null || obj === undefined) {
+      return null;
+    }
+    if (obj instanceof File) {
+      console.warn('File object detected in data, removing:', obj.name);
+      return null; // Remove File objects
+    }
+    if (Array.isArray(obj)) {
+      return obj.map(item => sanitizeData(item)).filter(item => item !== null);
+    }
+    if (typeof obj === 'object') {
+      const sanitized: any = {};
+      for (const key in obj) {
+        if (obj.hasOwnProperty(key)) {
+          const value = sanitizeData(obj[key]);
+          if (value !== null && value !== undefined) {
+            sanitized[key] = value;
+          }
+        }
+      }
+      return sanitized;
+    }
+    return obj;
+  };
+
   useEffect(() => {
     loadCategories();
   }, []);
@@ -114,24 +141,26 @@ const AdminCategories = () => {
         ? Math.max(...categories.map(c => c.id)) + 1 
         : 1;
 
-      // Ensure we only pass clean data to Firestore (no File objects)
       const categoryData: any = {
         id: nextId,
         name: categoryName,
-        iconName: iconUrl || '', // Store icon as base64 string (or URL if provided)
-        image: imageUrl || '', // Ensure it's a string, not a File object
+        iconName: String(iconUrl || ''), // Ensure it's a string
+        image: String(imageUrl || ''), // Ensure it's a string
         description: categoryDescription,
         availableAt: categoryStoreAvailability,
       };
       
-      // Remove any undefined or null values that might cause issues
-      Object.keys(categoryData).forEach(key => {
-        if (categoryData[key] === undefined || categoryData[key] === null) {
-          delete categoryData[key];
+      // Sanitize the entire object to remove any File objects or nested File objects
+      const sanitizedData = sanitizeData(categoryData);
+      
+      // Remove any null or undefined values
+      Object.keys(sanitizedData).forEach(key => {
+        if (sanitizedData[key] === undefined || sanitizedData[key] === null) {
+          delete sanitizedData[key];
         }
       });
       
-      await categoryService.create(categoryData);
+      await categoryService.create(sanitizedData);
 
       toast({
         title: "Success",
@@ -196,20 +225,23 @@ const AdminCategories = () => {
       // Ensure we only pass clean data to Firestore (no File objects)
       const updateData: any = {
         name: categoryName,
-        iconName: iconUrl || categoryIcon || '', // Use new icon or keep existing
-        image: imageUrl || '', // Ensure it's a string, not a File object
+        iconName: String(iconUrl || categoryIcon || ''), // Ensure it's a string
+        image: String(imageUrl || ''), // Ensure it's a string
         description: categoryDescription,
         availableAt: categoryStoreAvailability,
       };
       
-      // Remove any undefined or null values
-      Object.keys(updateData).forEach(key => {
-        if (updateData[key] === undefined || updateData[key] === null) {
-          delete updateData[key];
+      // Sanitize the entire object to remove any File objects or nested File objects
+      const sanitizedData = sanitizeData(updateData);
+      
+      // Remove any null or undefined values
+      Object.keys(sanitizedData).forEach(key => {
+        if (sanitizedData[key] === undefined || sanitizedData[key] === null) {
+          delete sanitizedData[key];
         }
       });
       
-      await categoryService.update(selectedCategory.id, updateData);
+      await categoryService.update(selectedCategory.id, sanitizedData);
 
       toast({
         title: "Success",
@@ -287,21 +319,24 @@ const AdminCategories = () => {
       const subcategoryData: any = {
         id: nextId,
         name: subcategoryName,
-        image: imageUrl || '', // Ensure it's a string, not a File object
-        iconName: subcategoryIconUrl || '', // Store icon as base64 string
+        image: String(imageUrl || ''), // Ensure it's a string
+        iconName: String(subcategoryIconUrl || ''), // Ensure it's a string
         productCount: 0,
         availableAt: subcategoryStoreAvailability,
         categoryId: selectedCategoryId,
       };
       
-      // Remove any undefined or null values
-      Object.keys(subcategoryData).forEach(key => {
-        if (subcategoryData[key] === undefined || subcategoryData[key] === null) {
-          delete subcategoryData[key];
+      // Sanitize the entire object to remove any File objects or nested File objects
+      const sanitizedData = sanitizeData(subcategoryData);
+      
+      // Remove any null or undefined values
+      Object.keys(sanitizedData).forEach(key => {
+        if (sanitizedData[key] === undefined || sanitizedData[key] === null) {
+          delete sanitizedData[key];
         }
       });
       
-      await subcategoryService.create(subcategoryData);
+      await subcategoryService.create(sanitizedData);
 
       toast({
         title: "Success",
@@ -365,19 +400,22 @@ const AdminCategories = () => {
       // Ensure we only pass clean data to Firestore (no File objects)
       const updateData: any = {
         name: subcategoryName,
-        image: imageUrl || '', // Ensure it's a string, not a File object
-        iconName: subcategoryIconUrl || '', // Store icon as base64 string
+        image: String(imageUrl || ''), // Ensure it's a string
+        iconName: String(subcategoryIconUrl || ''), // Ensure it's a string
         availableAt: subcategoryStoreAvailability,
       };
       
-      // Remove any undefined or null values
-      Object.keys(updateData).forEach(key => {
-        if (updateData[key] === undefined || updateData[key] === null) {
-          delete updateData[key];
+      // Sanitize the entire object to remove any File objects or nested File objects
+      const sanitizedData = sanitizeData(updateData);
+      
+      // Remove any null or undefined values
+      Object.keys(sanitizedData).forEach(key => {
+        if (sanitizedData[key] === undefined || sanitizedData[key] === null) {
+          delete sanitizedData[key];
         }
       });
       
-      await subcategoryService.update(editingSubcategory.id, updateData);
+      await subcategoryService.update(editingSubcategory.id, sanitizedData);
 
       toast({
         title: "Success",
