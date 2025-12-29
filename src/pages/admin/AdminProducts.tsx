@@ -32,7 +32,8 @@ import { Plus, Pencil, Trash2, Search, Package, Upload, X, Copy } from 'lucide-r
 import { categories, formatPrice, Product, StoreAvailability } from '@/data/categories';
 import { useToast } from '@/hooks/use-toast';
 import { productService } from '@/services/firestoreService';
-import { compressImageToBase64, validateImageFile, formatFileSize } from '@/lib/imageCompressor';
+import { validateImageFile, formatFileSize } from '@/lib/imageCompressor';
+import { uploadProductImage, deleteProductImage } from '@/services/storageService';
 
 const tagOptions = [
   { value: 'best-seller', label: 'Best Seller', color: 'bg-green-100 text-green-800' },
@@ -81,13 +82,41 @@ const AdminProducts = () => {
     return matchesSearch && matchesCategory;
   });
 
-  const handleSaveProduct = async (formData: any) => {
+  const handleSaveProduct = async (formData: any, imageFile: File | null, currentImageUrl?: string) => {
     try {
+      let imageUrl = currentImageUrl || formData.image;
+
+      // If a new image file is selected, upload it to Firebase Storage
+      if (imageFile) {
+        try {
+          // Upload to Firebase Storage
+          imageUrl = await uploadProductImage(imageFile, editingProduct?.id);
+          
+          // If updating and had a previous image, delete the old one from Storage
+          if (editingProduct && editingProduct.image && editingProduct.image.startsWith('https://')) {
+            try {
+              await deleteProductImage(editingProduct.image);
+            } catch (deleteError) {
+              console.warn('Could not delete old image:', deleteError);
+              // Continue even if deletion fails
+            }
+          }
+        } catch (uploadError) {
+          console.error('Error uploading image:', uploadError);
+          toast({
+            title: "Image Upload Failed",
+            description: "Failed to upload image to Firebase Storage. Please try again.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
       const productData: Omit<Product, 'id'> = {
         name: formData.name,
         price: parseFloat(formData.price),
         discountPrice: formData.discountPrice ? parseFloat(formData.discountPrice) : undefined,
-        image: formData.image,
+        image: imageUrl, // Use Firebase Storage URL
         rating: formData.rating || 0,
         reviews: formData.reviews || 0,
         description: formData.description,
@@ -136,7 +165,22 @@ const AdminProducts = () => {
     }
 
     try {
+      // Get product to check if it has an image in Firebase Storage
+      const product = products.find(p => p.id === productId);
+      
+      // Delete product from Firestore
       await productService.delete(productId);
+      
+      // Delete image from Firebase Storage if it exists
+      if (product?.image && product.image.startsWith('https://')) {
+        try {
+          await deleteProductImage(product.image);
+        } catch (deleteError) {
+          console.warn('Could not delete product image from Storage:', deleteError);
+          // Continue even if image deletion fails
+        }
+      }
+
       toast({
         title: "Product Deleted",
         description: "Product has been deleted successfully.",
@@ -227,18 +271,19 @@ const AdminProducts = () => {
       setCompressing(true);
 
       try {
-        // Compress and convert to base64
-        const result = await compressImageToBase64(file);
-        setImagePreview(result.base64);
+        // Create a preview URL for immediate display
+        const previewUrl = URL.createObjectURL(file);
+        setImagePreview(previewUrl);
+
         toast({
-          title: "Image Compressed",
-          description: `Compressed from ${formatFileSize(result.originalSize)} to ${formatFileSize(result.compressedSize)}`,
+          title: "Image Selected",
+          description: "Image will be uploaded to Firebase Storage when you save the product.",
         });
       } catch (error) {
-        console.error('Error compressing image:', error);
+        console.error('Error processing image:', error);
         toast({
           title: "Error",
-          description: "Failed to compress image. Please try again.",
+          description: "Failed to process image. Please try again.",
           variant: "destructive",
         });
       } finally {
@@ -262,7 +307,7 @@ const AdminProducts = () => {
         subcategoryId: formSubcategory,
         availableAt: storeAvailability,
       };
-      handleSaveProduct(formData);
+      handleSaveProduct(formData, imageFile, product?.image);
     };
 
     return (
