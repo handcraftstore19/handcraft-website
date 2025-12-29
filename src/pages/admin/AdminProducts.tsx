@@ -252,11 +252,19 @@ const AdminProducts = () => {
   };
 
   const ProductForm = ({ product }: { product?: Product | null }) => {
+    // Form state - all controlled inputs
+    const [productName, setProductName] = useState(product?.name || '');
+    const [productPrice, setProductPrice] = useState(product?.price?.toString() || '0');
+    const [productDiscountPrice, setProductDiscountPrice] = useState(product?.discountPrice?.toString() || '');
+    const [productStock, setProductStock] = useState(product?.stock?.toString() || '0');
+    const [productDescription, setProductDescription] = useState(product?.description || '');
+    const [productFeatures, setProductFeatures] = useState(product?.features?.join('\n') || '');
     const [formCategory, setFormCategory] = useState(product?.categoryId?.toString() || '');
     const [formSubcategory, setFormSubcategory] = useState(product?.subcategoryId?.toString() || '');
     const [selectedTags, setSelectedTags] = useState<string[]>(product?.tags || []);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string>(product?.image || '');
+    const [imageUrl, setImageUrl] = useState<string>(product?.image || '');
     const [compressing, setCompressing] = useState(false);
     const [storeAvailability, setStoreAvailability] = useState<StoreAvailability>(
       product?.availableAt || {
@@ -265,6 +273,47 @@ const AdminProducts = () => {
         warangal: false
       }
     );
+
+    // Update form when product prop changes (for edit mode)
+    useEffect(() => {
+      if (product) {
+        setProductName(product.name || '');
+        setProductPrice(product.price?.toString() || '0');
+        setProductDiscountPrice(product.discountPrice?.toString() || '');
+        setProductStock(product.stock?.toString() || '0');
+        setProductDescription(product.description || '');
+        setProductFeatures(product.features?.join('\n') || '');
+        setFormCategory(product.categoryId?.toString() || '');
+        setFormSubcategory(product.subcategoryId?.toString() || '');
+        setSelectedTags(product.tags || []);
+        setImagePreview(product.image || '');
+        setImageUrl(product.image || '');
+        setStoreAvailability(product.availableAt || {
+          hyderabad: true,
+          vizag: false,
+          warangal: false
+        });
+      } else {
+        // Reset form for new product
+        setProductName('');
+        setProductPrice('0');
+        setProductDiscountPrice('');
+        setProductStock('0');
+        setProductDescription('');
+        setProductFeatures('');
+        setFormCategory('');
+        setFormSubcategory('');
+        setSelectedTags([]);
+        setImageFile(null);
+        setImagePreview('');
+        setImageUrl('');
+        setStoreAvailability({
+          hyderabad: true,
+          vizag: false,
+          warangal: false
+        });
+      }
+    }, [product]);
 
     const selectedCategoryData = categories.find(c => c.id.toString() === formCategory);
 
@@ -309,15 +358,14 @@ const AdminProducts = () => {
 
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
-      const form = e.currentTarget;
       const formData = {
-        name: (form.querySelector('#name') as HTMLInputElement)?.value,
-        price: (form.querySelector('#price') as HTMLInputElement)?.value,
-        discountPrice: (form.querySelector('#discountPrice') as HTMLInputElement)?.value,
-        stock: (form.querySelector('#stock') as HTMLInputElement)?.value,
-        image: imagePreview || (form.querySelector('#image') as HTMLInputElement)?.value,
-        description: (form.querySelector('#description') as HTMLTextAreaElement)?.value,
-        features: (form.querySelector('#features') as HTMLTextAreaElement)?.value,
+        name: productName,
+        price: productPrice,
+        discountPrice: productDiscountPrice,
+        stock: productStock,
+        image: imagePreview || imageUrl,
+        description: productDescription,
+        features: productFeatures,
         tags: selectedTags,
         categoryId: formCategory,
         subcategoryId: formSubcategory,
@@ -332,7 +380,13 @@ const AdminProducts = () => {
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <Label htmlFor="name">Product Name</Label>
-              <Input id="name" defaultValue={product?.name} placeholder="Enter product name" required />
+              <Input 
+                id="name" 
+                value={productName}
+                onChange={(e) => setProductName(e.target.value)}
+                placeholder="Enter product name" 
+                required 
+              />
             </div>
 
           <div>
@@ -369,17 +423,35 @@ const AdminProducts = () => {
 
           <div>
             <Label htmlFor="price">Price (₹)</Label>
-            <Input id="price" type="number" defaultValue={product?.price} placeholder="0" />
+            <Input 
+              id="price" 
+              type="number" 
+              value={productPrice}
+              onChange={(e) => setProductPrice(e.target.value)}
+              placeholder="0" 
+            />
           </div>
 
           <div>
             <Label htmlFor="discountPrice">Discount Price (₹)</Label>
-            <Input id="discountPrice" type="number" defaultValue={product?.discountPrice} placeholder="Optional" />
+            <Input 
+              id="discountPrice" 
+              type="number" 
+              value={productDiscountPrice}
+              onChange={(e) => setProductDiscountPrice(e.target.value)}
+              placeholder="Optional" 
+            />
           </div>
 
           <div>
             <Label htmlFor="stock">Stock Quantity</Label>
-            <Input id="stock" type="number" defaultValue={product?.stock} placeholder="0" />
+            <Input 
+              id="stock" 
+              type="number" 
+              value={productStock}
+              onChange={(e) => setProductStock(e.target.value)}
+              placeholder="0" 
+            />
           </div>
 
           <div className="col-span-2">
@@ -422,8 +494,11 @@ const AdminProducts = () => {
                   <Input
                     id="image-url"
                     placeholder="Or enter image URL"
-                    defaultValue={product?.image}
-                    onChange={(e) => setImagePreview(e.target.value)}
+                    value={imageUrl}
+                    onChange={(e) => {
+                      setImageUrl(e.target.value);
+                      setImagePreview(e.target.value);
+                    }}
                   />
                 )}
               </div>
@@ -478,7 +553,8 @@ const AdminProducts = () => {
             <Label htmlFor="features">Features (one per line)</Label>
             <Textarea 
               id="features" 
-              defaultValue={product?.features?.join('\n')} 
+              value={productFeatures}
+              onChange={(e) => setProductFeatures(e.target.value)}
               placeholder="Feature 1&#10;Feature 2&#10;Feature 3"
               rows={4}
             />
