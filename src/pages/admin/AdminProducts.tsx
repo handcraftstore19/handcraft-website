@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -251,23 +251,23 @@ const AdminProducts = () => {
     }
   };
 
-  const ProductForm = ({ product }: { product?: Product | null }) => {
-    // Form state - all controlled inputs
-    // Initialize with product values or defaults, but don't reset on re-renders
-    const [productName, setProductName] = useState(() => product?.name || '');
-    const [productPrice, setProductPrice] = useState(() => product?.price?.toString() || '0');
-    const [productDiscountPrice, setProductDiscountPrice] = useState(() => product?.discountPrice?.toString() || '');
-    const [productStock, setProductStock] = useState(() => product?.stock?.toString() || '0');
-    const [productDescription, setProductDescription] = useState(() => product?.description || '');
-    const [productFeatures, setProductFeatures] = useState(() => product?.features?.join('\n') || '');
-    const [formCategory, setFormCategory] = useState(() => product?.categoryId?.toString() || '');
-    const [formSubcategory, setFormSubcategory] = useState(() => product?.subcategoryId?.toString() || '');
-    const [selectedTags, setSelectedTags] = useState<string[]>(() => product?.tags || []);
+  const ProductForm = ({ product, onClose }: { product?: Product | null; onClose?: () => void }) => {
+    // Form state - initialize ONCE from product prop and NEVER reset
+    // State is set only when component first mounts, then preserved through all re-renders
+    const [productName, setProductName] = useState(product?.name || '');
+    const [productPrice, setProductPrice] = useState(product?.price?.toString() || '0');
+    const [productDiscountPrice, setProductDiscountPrice] = useState(product?.discountPrice?.toString() || '');
+    const [productStock, setProductStock] = useState(product?.stock?.toString() || '0');
+    const [productDescription, setProductDescription] = useState(product?.description || '');
+    const [productFeatures, setProductFeatures] = useState(product?.features?.join('\n') || '');
+    const [formCategory, setFormCategory] = useState(product?.categoryId?.toString() || '');
+    const [formSubcategory, setFormSubcategory] = useState(product?.subcategoryId?.toString() || '');
+    const [selectedTags, setSelectedTags] = useState<string[]>(product?.tags || []);
     const [imageFile, setImageFile] = useState<File | null>(null);
-    const [imagePreview, setImagePreview] = useState<string>(() => product?.image || '');
-    const [imageUrl, setImageUrl] = useState<string>(() => product?.image || '');
+    const [imagePreview, setImagePreview] = useState<string>(product?.image || '');
+    const [imageUrl, setImageUrl] = useState<string>(product?.image || '');
     const [compressing, setCompressing] = useState(false);
-    const [storeAvailability, setStoreAvailability] = useState<StoreAvailability>(() =>
+    const [storeAvailability, setStoreAvailability] = useState<StoreAvailability>(
       product?.availableAt || {
         hyderabad: true,
         vizag: false,
@@ -275,42 +275,8 @@ const AdminProducts = () => {
       }
     );
 
-    // Track the product ID to detect when we're switching products
-    const prevProductIdRef = useRef<number | string | undefined | null>(product?.id);
-    
-    // Only update form when product ID actually changes (switching between products)
-    // This prevents resets when uploading images or other re-renders
-    useEffect(() => {
-      const currentProductId = product?.id;
-      const prevProductId = prevProductIdRef.current;
-      
-      // Only update if product ID actually changed (not just a re-render)
-      if (currentProductId !== prevProductId) {
-        prevProductIdRef.current = currentProductId;
-        
-        // Only update form if we have a product (edit mode)
-        // For new products (product is undefined), keep user's input
-        if (product) {
-          setProductName(product.name || '');
-          setProductPrice(product.price?.toString() || '0');
-          setProductDiscountPrice(product.discountPrice?.toString() || '');
-          setProductStock(product.stock?.toString() || '0');
-          setProductDescription(product.description || '');
-          setProductFeatures(product.features?.join('\n') || '');
-          setFormCategory(product.categoryId?.toString() || '');
-          setFormSubcategory(product.subcategoryId?.toString() || '');
-          setSelectedTags(product.tags || []);
-          setImagePreview(product.image || '');
-          setImageUrl(product.image || '');
-          setStoreAvailability(product.availableAt || {
-            hyderabad: true,
-            vizag: false,
-            warangal: false
-          });
-        }
-        // If product is undefined (new product), don't reset - preserve user input
-      }
-    }, [product?.id, product]); // Depend on both ID and product to catch changes
+    // NO useEffect - state is initialized once and never reset
+    // This ensures form values persist through all re-renders, including image uploads
 
     const selectedCategoryData = categories.find(c => c.id.toString() === formCategory);
 
@@ -674,7 +640,7 @@ const AdminProducts = () => {
             <DialogHeader>
               <DialogTitle>Add New Product</DialogTitle>
             </DialogHeader>
-            {isAddDialogOpen && <ProductForm key="add-product" />}
+            {isAddDialogOpen && <ProductForm key="add-product-form" onClose={() => setIsAddDialogOpen(false)} />}
           </DialogContent>
         </Dialog>
       </div>
@@ -790,7 +756,13 @@ const AdminProducts = () => {
                         >
                           <Copy className="h-4 w-4" />
                         </Button>
-                        <Dialog>
+                        <Dialog open={editingProduct?.id === product.id} onOpenChange={(open) => {
+                          if (!open) {
+                            setEditingProduct(null);
+                          } else {
+                            setEditingProduct(product);
+                          }
+                        }}>
                           <DialogTrigger asChild>
                             <Button variant="ghost" size="icon" onClick={() => setEditingProduct(product)} title="Edit Product">
                               <Pencil className="h-4 w-4" />
@@ -800,7 +772,13 @@ const AdminProducts = () => {
                             <DialogHeader>
                               <DialogTitle>Edit Product</DialogTitle>
                             </DialogHeader>
-                            {editingProduct?.id === product.id && <ProductForm key={`edit-product-${product.id}`} product={product} />}
+                            {editingProduct?.id === product.id && (
+                              <ProductForm 
+                                key={`edit-product-${product.id}`} 
+                                product={product} 
+                                onClose={() => setEditingProduct(null)}
+                              />
+                            )}
                           </DialogContent>
                         </Dialog>
                         <Button 
