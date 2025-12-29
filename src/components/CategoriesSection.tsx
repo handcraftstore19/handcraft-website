@@ -1,7 +1,9 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { categories, StoreAvailability } from "@/data/categories";
+import { Category, StoreAvailability } from "@/data/categories";
 import * as Icons from "lucide-react";
 import { useStore } from "@/contexts/StoreContext";
+import { categoryService } from "@/services/firestoreService";
 
 const getIcon = (iconName: string) => {
   const IconComponent = (Icons as any)[iconName] || Icons.Award;
@@ -11,6 +13,24 @@ const getIcon = (iconName: string) => {
 const CategoriesSection = () => {
   const { selectedStore } = useStore();
   const storeId = selectedStore?.id || null;
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      setLoading(true);
+      try {
+        const allCategories = await categoryService.getAll();
+        setCategories(allCategories);
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCategories();
+  }, []);
 
   // Helper function to check if category is available at store
   const isCategoryAvailable = (category: { availableAt?: StoreAvailability }) => {
@@ -26,6 +46,18 @@ const CategoriesSection = () => {
 
   // Filter categories by store availability
   const availableCategories = categories.filter(isCategoryAvailable);
+
+  if (loading) {
+    return (
+      <section className="py-16 md:py-24 bg-background">
+        <div className="container mx-auto px-4">
+          <div className="text-center">
+            <p className="text-muted-foreground">Loading categories...</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="py-16 md:py-24 bg-background">

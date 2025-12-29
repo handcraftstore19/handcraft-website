@@ -41,22 +41,7 @@ const tagOptions = [
   { value: 'limited-edition', label: 'Limited Edition', color: 'bg-orange-100 text-orange-800' },
 ];
 
-// Flatten all products for display
-const getAllProducts = () => {
-  const products: (Product & { categoryName: string; subcategoryName: string })[] = [];
-  categories.forEach(category => {
-    category.subcategories.forEach(subcategory => {
-      subcategory.products.forEach(product => {
-        products.push({
-          ...product,
-          categoryName: category.name,
-          subcategoryName: subcategory.name
-        });
-      });
-    });
-  });
-  return products;
-};
+// All products now come from Firestore - no mock data fallback
 
 const AdminProducts = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -81,20 +66,16 @@ const AdminProducts = () => {
       console.error('Error loading products:', error);
       toast({
         title: "Error",
-        description: "Failed to load products. Using local data.",
+        description: "Failed to load products from Firestore.",
         variant: "destructive",
       });
-      // Fallback to local data
-      setProducts(getAllProducts());
     } finally {
       setLoading(false);
     }
   };
 
-  // Merge Firestore products with local products for display
-  const allProducts = [...products, ...getAllProducts()];
-  
-  const filteredProducts = allProducts.filter(product => {
+  // Filter products from Firestore
+  const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || product.categoryId.toString() === selectedCategory;
     return matchesSearch && matchesCategory;

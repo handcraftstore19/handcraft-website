@@ -10,8 +10,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { LogIn, Phone, Mail } from 'lucide-react';
+import PasswordInput from '@/components/PasswordInput';
 import { formatPhoneNumber } from '@/services/otpService';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { countryCodes, getDefaultCountry, type CountryCode } from '@/data/countryCodes';
 
 const LoginPage = () => {
   // Email/Password state
@@ -21,6 +24,7 @@ const LoginPage = () => {
   // Phone/Password state
   const [phone, setPhone] = useState('');
   const [phonePassword, setPhonePassword] = useState('');
+  const [selectedCountry, setSelectedCountry] = useState<CountryCode>(getDefaultCountry());
   
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -60,9 +64,11 @@ const LoginPage = () => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const formattedPhone = formatPhoneNumber(phone);
     
     try {
+      // Combine country code with phone number
+      const phoneNumber = phone.startsWith('+') ? phone : `${selectedCountry.dialCode}${phone.replace(/\D/g, '')}`;
+      const formattedPhone = formatPhoneNumber(phoneNumber);
       await loginWithPhone(formattedPhone, phonePassword);
       navigate('/profile');
     } catch (err: any) {
@@ -121,9 +127,8 @@ const LoginPage = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="password">Password</Label>
-                    <Input
+                    <PasswordInput
                       id="password"
-                      type="password"
                       placeholder="Enter your password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -190,24 +195,59 @@ const LoginPage = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="phone">Phone Number</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="+1234567890"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      required
-                    />
+                    <div className="flex gap-2">
+                      <Select
+                        value={selectedCountry.code}
+                        onValueChange={(value) => {
+                          const country = countryCodes.find(c => c.code === value);
+                          if (country) {
+                            setSelectedCountry(country);
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-[140px]">
+                          <SelectValue>
+                            <span className="flex items-center gap-2">
+                              <span>{selectedCountry.flag}</span>
+                              <span>{selectedCountry.dialCode}</span>
+                            </span>
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[300px]">
+                          {countryCodes.map((country) => (
+                            <SelectItem key={country.code} value={country.code}>
+                              <span className="flex items-center gap-2">
+                                <span>{country.flag}</span>
+                                <span>{country.dialCode}</span>
+                                <span className="text-muted-foreground">{country.name}</span>
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        placeholder="9876543210"
+                        value={phone}
+                        onChange={(e) => {
+                          // Only allow digits
+                          const digits = e.target.value.replace(/\D/g, '');
+                          setPhone(digits);
+                        }}
+                        required
+                        className="flex-1"
+                      />
+                    </div>
                     <p className="text-xs text-muted-foreground">
-                      Enter your phone number with country code (e.g., +1234567890)
+                      Enter your phone number (country code is selected above)
                     </p>
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="phonePassword">Password</Label>
-                    <Input
+                    <PasswordInput
                       id="phonePassword"
-                      type="password"
                       placeholder="Enter your password"
                       value={phonePassword}
                       onChange={(e) => setPhonePassword(e.target.value)}

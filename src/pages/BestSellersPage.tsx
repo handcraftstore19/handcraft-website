@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,10 +14,27 @@ import { useStore } from '@/contexts/StoreContext';
 const BestSellersPage = () => {
   const { selectedStore } = useStore();
   const storeId = selectedStore?.id || null;
-  const allProducts = getBestSellerProducts(storeId);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { addToCart } = useCart();
   const [hoveredProduct, setHoveredProduct] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setLoading(true);
+      try {
+        const products = await getBestSellerProducts(storeId);
+        setAllProducts(products);
+      } catch (error) {
+        console.error('Error fetching best sellers:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, [storeId]);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -31,7 +48,13 @@ const BestSellersPage = () => {
             </p>
           </div>
 
-          {allProducts.length === 0 ? (
+          {loading ? (
+            <Card>
+              <CardContent className="pt-6 text-center py-12">
+                <p className="text-muted-foreground">Loading products...</p>
+              </CardContent>
+            </Card>
+          ) : allProducts.length === 0 ? (
             <Card>
               <CardContent className="pt-6 text-center py-12">
                 <p className="text-muted-foreground">No best seller products found.</p>

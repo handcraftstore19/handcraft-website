@@ -1,14 +1,32 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Star, Eye, EyeOff } from 'lucide-react';
 import { useReview } from '@/contexts/ReviewContext';
-import { getProductById } from '@/data/categories';
+import { productService } from '@/services/firestoreService';
+import { Product } from '@/data/categories';
 
 const AdminReviews = () => {
   const { reviews, toggleReviewVisibility } = useReview();
   const [filterVisible, setFilterVisible] = useState<'all' | 'visible' | 'hidden'>('all');
+  const [products, setProducts] = useState<Record<string | number, Product>>({});
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const allProducts = await productService.getAll();
+        const productMap: Record<string | number, Product> = {};
+        allProducts.forEach(product => {
+          productMap[product.id] = product;
+        });
+        setProducts(productMap);
+      } catch (error) {
+        console.error('Error fetching products:', error);
+      }
+    };
+    fetchProducts();
+  }, []);
 
   const filteredReviews = reviews.filter(review => {
     if (filterVisible === 'visible') return review.isVisible;
@@ -17,8 +35,8 @@ const AdminReviews = () => {
   });
 
   const getProductName = (productId: number) => {
-    const result = getProductById(productId);
-    return result?.product.name || `Product #${productId}`;
+    const product = products[productId];
+    return product?.name || `Product #${productId}`;
   };
 
   return (

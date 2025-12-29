@@ -9,13 +9,17 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { UserPlus, Phone, Mail } from 'lucide-react';
+import PasswordInput from '@/components/PasswordInput';
 import { formatPhoneNumber, validatePhoneNumber } from '@/services/otpService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { countryCodes, getDefaultCountry, type CountryCode } from '@/data/countryCodes';
 
 const SignUpPage = () => {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [selectedCountry, setSelectedCountry] = useState<CountryCode>(getDefaultCountry());
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [otp, setOtp] = useState('');
@@ -40,8 +44,10 @@ const SignUpPage = () => {
       return;
     }
 
-    if (!validatePhoneNumber(phone)) {
-      setError('Please enter a valid phone number');
+    // Validate phone number (should have at least 10 digits after country code)
+    const phoneDigits = phone.replace(/\D/g, '');
+    if (phoneDigits.length < 10) {
+      setError('Please enter a valid phone number (at least 10 digits)');
       return;
     }
 
@@ -56,7 +62,9 @@ const SignUpPage = () => {
     }
 
     setSendingOTP(true);
-    const formattedPhone = formatPhoneNumber(phone);
+    // Combine country code with phone number
+    const phoneNumber = phone.startsWith('+') ? phone : `${selectedCountry.dialCode}${phone.replace(/\D/g, '')}`;
+    const formattedPhone = formatPhoneNumber(phoneNumber);
     
     try {
       await sendOTP(formattedPhone);
@@ -103,7 +111,9 @@ const SignUpPage = () => {
     }
 
     setLoading(true);
-    const formattedPhone = formatPhoneNumber(phone);
+    // Combine country code with phone number
+    const phoneNumber = phone.startsWith('+') ? phone : `${selectedCountry.dialCode}${phone.replace(/\D/g, '')}`;
+    const formattedPhone = formatPhoneNumber(phoneNumber);
     
     try {
       await signupWithPhone(formattedPhone, name.trim(), password, otp);
@@ -216,9 +226,8 @@ const SignUpPage = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="emailPassword">Password</Label>
-                    <Input
+                    <PasswordInput
                       id="emailPassword"
-                      type="password"
                       placeholder="At least 6 characters"
                       value={emailPassword}
                       onChange={(e) => setEmailPassword(e.target.value)}
@@ -228,9 +237,8 @@ const SignUpPage = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="emailConfirmPassword">Confirm Password</Label>
-                    <Input
+                    <PasswordInput
                       id="emailConfirmPassword"
-                      type="password"
                       placeholder="Confirm your password"
                       value={emailConfirmPassword}
                       onChange={(e) => setEmailConfirmPassword(e.target.value)}
@@ -305,13 +313,47 @@ const SignUpPage = () => {
                   <div className="space-y-2">
                     <Label htmlFor="phone">Phone Number</Label>
                     <div className="flex gap-2">
+                      <Select
+                        value={selectedCountry.code}
+                        onValueChange={(value) => {
+                          const country = countryCodes.find(c => c.code === value);
+                          if (country) {
+                            setSelectedCountry(country);
+                            setOtpSent(false);
+                            setOtp('');
+                          }
+                        }}
+                        disabled={otpSent}
+                      >
+                        <SelectTrigger className="w-[140px]">
+                          <SelectValue>
+                            <span className="flex items-center gap-2">
+                              <span>{selectedCountry.flag}</span>
+                              <span>{selectedCountry.dialCode}</span>
+                            </span>
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[300px]">
+                          {countryCodes.map((country) => (
+                            <SelectItem key={country.code} value={country.code}>
+                              <span className="flex items-center gap-2">
+                                <span>{country.flag}</span>
+                                <span>{country.dialCode}</span>
+                                <span className="text-muted-foreground">{country.name}</span>
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <Input
                         id="phone"
                         type="tel"
-                        placeholder="+1234567890"
+                        placeholder="9876543210"
                         value={phone}
                         onChange={(e) => {
-                          setPhone(e.target.value);
+                          // Only allow digits
+                          const digits = e.target.value.replace(/\D/g, '');
+                          setPhone(digits);
                           setOtpSent(false);
                           setOtp('');
                         }}
@@ -322,7 +364,7 @@ const SignUpPage = () => {
                       <Button
                         type="button"
                         onClick={handleSendOTP}
-                        disabled={sendingOTP || otpSent || countdown > 0 || !name.trim() || !password}
+                        disabled={sendingOTP || otpSent || countdown > 0 || !name.trim() || !password || phone.length < 10}
                         variant="outline"
                       >
                         {sendingOTP
@@ -335,15 +377,14 @@ const SignUpPage = () => {
                       </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Enter your phone number with country code (e.g., +1234567890)
+                      Enter your phone number (country code is selected above)
                     </p>
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="phonePassword">Password</Label>
-                    <Input
+                    <PasswordInput
                       id="phonePassword"
-                      type="password"
                       placeholder="At least 6 characters"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -354,9 +395,8 @@ const SignUpPage = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="phoneConfirmPassword">Confirm Password</Label>
-                    <Input
+                    <PasswordInput
                       id="phoneConfirmPassword"
-                      type="password"
                       placeholder="Confirm your password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}

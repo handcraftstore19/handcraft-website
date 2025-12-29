@@ -1,22 +1,26 @@
 import { useParams, Link } from "react-router-dom";
 import { ChevronRight, Star, Heart, ShoppingBag, Minus, Plus, Check } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { getProductById, categories, Product } from "@/data/categories";
+import { Product, Category } from "@/data/categories";
 import { useWishlist } from "@/contexts/WishlistContext";
 import { useReview } from "@/contexts/ReviewContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { productService, categoryService } from "@/services/firestoreService";
 
 const ProductDetailPage = () => {
   const { productId } = useParams();
-  const result = getProductById(Number(productId));
+  const [product, setProduct] = useState<Product | null>(null);
+  const [category, setCategory] = useState<Category | null>(null);
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewRating, setReviewRating] = useState(5);
@@ -28,23 +32,52 @@ const ProductDetailPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Get related products (from same category, excluding current product)
-  const relatedProducts = useMemo(() => {
-    if (!result) return [];
-    const { product, category } = result;
-    const allProducts: Product[] = [];
-    
-    category.subcategories.forEach(subcategory => {
-      allProducts.push(...subcategory.products);
-    });
-    
-    return allProducts
-      .filter(p => p.id !== product.id)
-      .sort(() => Math.random() - 0.5) // Shuffle for variety
-      .slice(0, 4); // Show 4 related products
-  }, [result]);
+  useEffect(() => {
+    const fetchProduct = async () => {
+      if (!productId) return;
+      setLoading(true);
+      try {
+        const prod = await productService.getById(productId);
+        if (prod) {
+          setProduct(prod);
+          // Fetch category
+          const cat = await categoryService.getById(prod.categoryId);
+          if (cat) {
+            setCategory(cat);
+            // Fetch related products from same category
+            const allProducts = await productService.getByCategory(prod.categoryId);
+            const related = allProducts
+              .filter(p => p.id !== prod.id)
+              .sort(() => Math.random() - 0.5)
+              .slice(0, 4);
+            setRelatedProducts(related);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching product:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  if (!result) {
+    fetchProduct();
+  }, [productId]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-muted-foreground">Loading product...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!product || !category) {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
@@ -59,7 +92,7 @@ const ProductDetailPage = () => {
     );
   }
 
-  const { product, category, subcategory } = result;
+  const subcategory = category.subcategories.find(s => s.id === product.subcategoryId);
   const reviews = getProductReviews(product.id);
   const canReview = user ? canUserReview(product.id, user.id) : false;
   const averageRating = reviews.length > 0

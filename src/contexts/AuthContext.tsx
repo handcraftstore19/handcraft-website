@@ -68,11 +68,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         const userObj: User = {
           id: firebaseUser.uid,
-          email: firebaseUser.email || undefined,
-          phone: firebaseUser.phoneNumber || undefined,
+          email: firebaseUser.email || userData?.email || undefined,
+          // Get phone from Firestore first (for phone signups), then fallback to Firebase Auth phoneNumber
+          phone: userData?.phone || firebaseUser.phoneNumber || undefined,
           name: userData?.name || firebaseUser.displayName || 'User',
           role: userData?.role || 'user',
-          photoURL: firebaseUser.photoURL || undefined,
+          photoURL: firebaseUser.photoURL || userData?.photoURL || undefined,
         };
 
         setUser(userObj);
@@ -89,17 +90,68 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Initialize recaptcha verifier
   const initializeRecaptcha = (): RecaptchaVerifier => {
-    if (!recaptchaVerifier) {
+    // Clean up existing verifier if any
+    if (recaptchaVerifier) {
+      try {
+        recaptchaVerifier.clear();
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+      recaptchaVerifier = null;
+    }
+
+    // Remove any existing container to ensure clean state
+    const existingContainer = document.getElementById('recaptcha-container');
+    if (existingContainer) {
+      existingContainer.remove();
+    }
+
+    // Create a new container - must be in DOM and accessible for invisible reCAPTCHA
+    const container = document.createElement('div');
+    container.id = 'recaptcha-container';
+    // For invisible reCAPTCHA, container should exist but can be hidden
+    // Using a more standard approach that Firebase recognizes
+    container.style.cssText = 'position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden;';
+    document.body.appendChild(container);
+
+    // Create new verifier with proper configuration
+    try {
       recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
         size: 'invisible',
         callback: () => {
           // reCAPTCHA solved
+          console.log('reCAPTCHA verified');
         },
         'expired-callback': () => {
-          // Response expired
+          // Response expired - need to re-verify
+          console.log('reCAPTCHA expired');
+          if (recaptchaVerifier) {
+            try {
+              recaptchaVerifier.clear();
+            } catch (e) {
+              // Ignore cleanup errors
+            }
+            recaptchaVerifier = null;
+          }
         },
       });
+    } catch (error: any) {
+      console.error('reCAPTCHA initialization error:', error);
+      // Clean up container on error
+      if (container && container.parentNode) {
+        container.parentNode.removeChild(container);
+      }
+      if (recaptchaVerifier) {
+        try {
+          recaptchaVerifier.clear();
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+        recaptchaVerifier = null;
+      }
+      throw new Error('Failed to initialize phone verification. Please refresh the page and try again.');
     }
+
     return recaptchaVerifier;
   };
 
@@ -203,8 +255,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Format phone number (ensure it starts with +)
       const formattedPhone = phone.startsWith('+') ? phone : `+${phone}`;
 
+      // Validate phone number format (should be E.164 format)
+      if (!/^\+[1-9]\d{1,14}$/.test(formattedPhone)) {
+        throw new Error('Invalid phone number format. Please include country code (e.g., +91 for India)');
+      }
+
+      // Clean up any existing verifier first
+      if (recaptchaVerifier) {
+        try {
+          recaptchaVerifier.clear();
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+        recaptchaVerifier = null;
+      }
+
+      // Remove any existing container
+      const existingContainer = document.getElementById('recaptcha-container');
+      if (existingContainer) {
+        existingContainer.remove();
+      }
+
+      // Wait a bit to ensure DOM is ready
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       // Initialize recaptcha
       const verifier = initializeRecaptcha();
+
+      // Wait for reCAPTCHA to be ready - invisible reCAPTCHA needs time to initialize
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Send OTP
       confirmationResult = await signInWithPhoneNumber(auth, formattedPhone, verifier);
@@ -212,14 +291,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return true;
     } catch (error: any) {
       console.error('Error sending OTP:', error);
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      console.error('Full error object:', JSON.stringify(error, null, 2));
       
       // Clean up recaptcha on error
       if (recaptchaVerifier) {
-        recaptchaVerifier.clear();
+        try {
+          recaptchaVerifier.clear();
+        } catch (e) {
+          // Ignore cleanup errors
+        }
         recaptchaVerifier = null;
       }
       
-      throw new Error(error.message || 'Failed to send OTP');
+      // Provide user-friendly error messages
+      if (error.code === 'auth/invalid-app-credential') {
+        const errorMsg = `Phone authentication configuration error. Please ensure:
+1. 'localhost' is added to Authorized domains in Firebase Console (Authentication → Settings → Authorized domains)
+2. Your API key is not restricted in Google Cloud Console
+3. Phone Authentication is enabled in Firebase Console
+
+For detailed steps, see FIREBASE_PHONE_AUTH_FIX.md`;
+        console.error(errorMsg);
+        throw new Error('Phone authentication is not properly configured. Please check the browser console for detailed instructions.');
+      } else if (error.code === 'auth/invalid-phone-number') {
+        throw new Error('Invalid phone number format. Please include country code (e.g., +91 for India).');
+      } else if (error.code === 'auth/too-many-requests') {
+        throw new Error('Too many requests. Please try again later.');
+      } else if (error.code === 'auth/quota-exceeded') {
+        throw new Error('SMS quota exceeded. Please try again later or contact support.');
+      }
+      
+      throw new Error(error.message || 'Failed to send OTP. Please try again.');
     }
   };
 
@@ -431,6 +535,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         updateData,
         { merge: true }
       );
+
+      // Refresh user data from Firestore to update the state
+      const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+      const userData = userDoc.data();
+
+      const userObj: User = {
+        id: currentUser.uid,
+        email: currentUser.email || userData?.email || undefined,
+        phone: userData?.phone || currentUser.phoneNumber || undefined,
+        name: userData?.name || currentUser.displayName || 'User',
+        role: userData?.role || 'user',
+        photoURL: currentUser.photoURL || userData?.photoURL || undefined,
+      };
+
+      setUser(userObj);
+      localStorage.setItem('user', JSON.stringify(userObj));
     } catch (error: any) {
       console.error('Update profile error:', error);
       throw new Error(error.message || 'Failed to update profile');
@@ -502,8 +622,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }}
     >
       {children}
-      {/* Hidden container for reCAPTCHA */}
-      <div id="recaptcha-container"></div>
     </AuthContext.Provider>
   );
 };

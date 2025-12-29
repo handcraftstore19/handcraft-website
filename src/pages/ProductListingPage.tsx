@@ -1,19 +1,45 @@
+import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { ChevronRight, Star, Heart, ShoppingBag } from "lucide-react";
-import { useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { getCategoryById, getSubcategoryById, StoreAvailability } from "@/data/categories";
+import { Category, Subcategory, Product, StoreAvailability } from "@/data/categories";
 import { useStore } from "@/contexts/StoreContext";
+import { categoryService, subcategoryService, productService } from "@/services/firestoreService";
 
 const ProductListingPage = () => {
   const { categoryId, subcategoryId } = useParams();
   const { selectedStore } = useStore();
   const storeId = selectedStore?.id || null;
-  const category = getCategoryById(Number(categoryId));
-  const subcategory = getSubcategoryById(Number(categoryId), Number(subcategoryId));
+  const [category, setCategory] = useState<Category | null>(null);
+  const [subcategory, setSubcategory] = useState<Subcategory | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [hoveredProduct, setHoveredProduct] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!categoryId || !subcategoryId) return;
+      setLoading(true);
+      try {
+        const [cat, subcat, prods] = await Promise.all([
+          categoryService.getById(Number(categoryId)),
+          subcategoryService.getById(Number(subcategoryId)),
+          productService.getBySubcategory(Number(categoryId), Number(subcategoryId))
+        ]);
+        setCategory(cat);
+        setSubcategory(subcat);
+        setProducts(prods);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [categoryId, subcategoryId]);
 
   // Helper function to check if product is available at store
   const isProductAvailable = (product: { availableAt?: StoreAvailability }) => {
@@ -28,7 +54,21 @@ const ProductListingPage = () => {
   };
 
   // Filter products by store availability
-  const availableProducts = subcategory?.products.filter(isProductAvailable) || [];
+  const availableProducts = products.filter(isProductAvailable);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-muted-foreground">Loading products...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!category || !subcategory) {
     return (

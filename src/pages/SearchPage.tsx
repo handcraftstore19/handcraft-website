@@ -12,12 +12,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Star, ShoppingBag, Heart, Filter, X } from 'lucide-react';
 import { useWishlist } from '@/contexts/WishlistContext';
-import { categories } from '@/data/categories';
+import { categoryService } from '@/services/firestoreService';
+import { Category } from '@/data/categories';
 
 const SearchPage = () => {
   const [searchParams] = useSearchParams();
   const query = searchParams.get('q') || '';
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     categoryId: undefined as number | undefined,
@@ -29,14 +31,30 @@ const SearchPage = () => {
   const { isInWishlist, toggleWishlist } = useWishlist();
 
   useEffect(() => {
-    if (query) {
-      const results = searchProducts(query, filters);
-      setProducts(results);
-    } else {
-      // Show trending products when search is empty
-      const trending = getTrendingProducts();
-      setProducts(trending);
-    }
+    const fetchCategories = async () => {
+      try {
+        const cats = await categoryService.getAll();
+        setCategories(cats);
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+      }
+    };
+    fetchCategories();
+  }, []);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      if (query) {
+        const results = await searchProducts(query, filters);
+        setProducts(results);
+      } else {
+        // Show trending products when search is empty
+        const trending = await getTrendingProducts();
+        setProducts(trending);
+      }
+    };
+
+    fetchProducts();
   }, [query, filters]);
 
   const handleFilterChange = (key: string, value: any) => {

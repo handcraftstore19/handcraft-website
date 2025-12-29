@@ -1,9 +1,11 @@
+import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { getCategoryById, StoreAvailability } from "@/data/categories";
+import { Category, StoreAvailability } from "@/data/categories";
 import { useStore } from "@/contexts/StoreContext";
+import { categoryService } from "@/services/firestoreService";
 import * as Icons from "lucide-react";
 
 const getIcon = (iconName: string) => {
@@ -15,7 +17,25 @@ const CategoryPage = () => {
   const { categoryId } = useParams();
   const { selectedStore } = useStore();
   const storeId = selectedStore?.id || null;
-  const category = getCategoryById(Number(categoryId));
+  const [category, setCategory] = useState<Category | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCategory = async () => {
+      if (!categoryId) return;
+      setLoading(true);
+      try {
+        const cat = await categoryService.getById(Number(categoryId));
+        setCategory(cat);
+      } catch (error) {
+        console.error('Error fetching category:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCategory();
+  }, [categoryId]);
 
   // Helper function to check availability
   const isAvailable = (item: { availableAt?: StoreAvailability }) => {
@@ -31,6 +51,20 @@ const CategoryPage = () => {
 
   // Filter subcategories by store availability
   const availableSubcategories = category?.subcategories.filter(sub => isAvailable(sub)) || [];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-muted-foreground">Loading category...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!category) {
     return (
