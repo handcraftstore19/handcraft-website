@@ -1,4 +1,3 @@
-import { MessageCircle } from 'lucide-react';
 import { useStore } from '@/contexts/StoreContext';
 
 const WhatsAppFAB = () => {
@@ -19,7 +18,11 @@ const WhatsAppFAB = () => {
       title={`Chat with ${selectedStore.name} on WhatsApp`}
       aria-label="WhatsApp Chat"
     >
-      <MessageCircle className="w-7 h-7" />
+      <img 
+        src="/assets/images/whatsapp-icon.png" 
+        alt="WhatsApp" 
+        className="w-8 h-8 object-contain"
+      />
       <span className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center">
         <span className="w-2 h-2 bg-[#25D366] rounded-full animate-pulse"></span>
       </span>

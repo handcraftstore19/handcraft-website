@@ -14,7 +14,8 @@ import {
   ChevronRight,
   LogOut,
   Settings,
-  Menu
+  Menu,
+  Users
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -23,6 +24,7 @@ const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/admin' },
   { icon: Package, label: 'Products', path: '/admin/products' },
   { icon: FolderTree, label: 'Categories', path: '/admin/categories' },
+  { icon: Users, label: 'Users', path: '/admin/users' },
   { icon: ShoppingCart, label: 'Orders', path: '/admin/orders' },
   { icon: Star, label: 'Reviews', path: '/admin/reviews' },
   { icon: Ticket, label: 'Coupons', path: '/admin/coupons' },

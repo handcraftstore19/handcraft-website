@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -10,53 +11,337 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, FolderTree, Image as ImageIcon } from 'lucide-react';
-import { categories, StoreAvailability } from '@/data/categories';
+import { Plus, Pencil, Trash2, FolderTree, Loader2 } from 'lucide-react';
+import { StoreAvailability, Category, Subcategory } from '@/data/categories';
 import { useToast } from '@/hooks/use-toast';
+import { categoryService, subcategoryService } from '@/services/firestoreService';
+import { uploadImageAsBase64 } from '@/services/storageService';
+import { productService } from '@/services/firestoreService';
 
 const AdminCategories = () => {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isSubcategoryDialogOpen, setIsSubcategoryDialogOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [editingSubcategory, setEditingSubcategory] = useState<Subcategory | null>(null);
+  
+  // Form states
+  const [categoryName, setCategoryName] = useState('');
+  const [categoryIconName, setCategoryIconName] = useState('');
+  const [categoryImage, setCategoryImage] = useState('');
+  const [categoryDescription, setCategoryDescription] = useState('');
   const [categoryStoreAvailability, setCategoryStoreAvailability] = useState<StoreAvailability>({
     hyderabad: true,
     vizag: false,
     warangal: false
   });
+  
+  const [subcategoryName, setSubcategoryName] = useState('');
+  const [subcategoryImage, setSubcategoryImage] = useState('');
   const [subcategoryStoreAvailability, setSubcategoryStoreAvailability] = useState<StoreAvailability>({
     hyderabad: true,
     vizag: false,
     warangal: false
   });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [subcategoryImageFile, setSubcategoryImageFile] = useState<File | null>(null);
+  
   const { toast } = useToast();
 
-  const handleSaveCategory = () => {
-    toast({
-      title: "Category Saved",
-      description: "Category has been saved. Firebase integration pending.",
-    });
-    setIsAddDialogOpen(false);
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  const loadCategories = async () => {
+    try {
+      setLoading(true);
+      const firestoreCategories = await categoryService.getAll();
+      setCategories(firestoreCategories);
+    } catch (error) {
+      console.error('Error loading categories:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load categories from Firestore.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSaveSubcategory = () => {
-    toast({
-      title: "Subcategory Saved",
-      description: "Subcategory has been saved. Firebase integration pending.",
-    });
-    setIsSubcategoryDialogOpen(false);
+  const getTotalProducts = async (categoryId: number): Promise<number> => {
+    try {
+      const products = await productService.getByCategory(categoryId);
+      return products.length;
+    } catch (error) {
+      return 0;
+    }
   };
 
-  const handleDelete = (type: 'category' | 'subcategory', id: number) => {
-    toast({
-      title: `${type === 'category' ? 'Category' : 'Subcategory'} Deleted`,
-      description: "Firebase integration pending.",
-    });
+  const handleAddCategory = async () => {
+    if (!categoryName || !categoryIconName || !categoryDescription) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      let imageUrl = categoryImage;
+      
+      // If image file is provided, upload it
+      if (imageFile) {
+        imageUrl = await uploadImageAsBase64(imageFile);
+      }
+
+      // Get next ID (simple increment - in production, use a better ID system)
+      const nextId = categories.length > 0 
+        ? Math.max(...categories.map(c => c.id)) + 1 
+        : 1;
+
+      await categoryService.create({
+        id: nextId,
+        name: categoryName,
+        iconName: categoryIconName,
+        image: imageUrl,
+        description: categoryDescription,
+        availableAt: categoryStoreAvailability,
+      });
+
+      toast({
+        title: "Success",
+        description: "Category created successfully.",
+      });
+
+      // Reset form
+      setCategoryName('');
+      setCategoryIconName('');
+      setCategoryImage('');
+      setCategoryDescription('');
+      setCategoryStoreAvailability({ hyderabad: true, vizag: false, warangal: false });
+      setImageFile(null);
+      setIsAddDialogOpen(false);
+      
+      // Reload categories
+      await loadCategories();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create category.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const getTotalProducts = (categoryId: number) => {
-    const category = categories.find(c => c.id === categoryId);
-    return category?.subcategories.reduce((sum, sub) => sum + sub.products.length, 0) || 0;
+  const handleEditCategory = (category: Category) => {
+    setSelectedCategory(category);
+    setCategoryName(category.name);
+    setCategoryIconName(category.iconName);
+    setCategoryImage(category.image);
+    setCategoryDescription(category.description);
+    setCategoryStoreAvailability(category.availableAt || { hyderabad: true, vizag: false, warangal: false });
+    setIsEditDialogOpen(true);
   };
+
+  const handleUpdateCategory = async () => {
+    if (!selectedCategory || !categoryName || !categoryIconName || !categoryDescription) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      let imageUrl = categoryImage;
+      
+      if (imageFile) {
+        imageUrl = await uploadImageAsBase64(imageFile);
+      }
+
+      await categoryService.update(selectedCategory.id, {
+        name: categoryName,
+        iconName: categoryIconName,
+        image: imageUrl,
+        description: categoryDescription,
+        availableAt: categoryStoreAvailability,
+      });
+
+      toast({
+        title: "Success",
+        description: "Category updated successfully.",
+      });
+
+      setIsEditDialogOpen(false);
+      setSelectedCategory(null);
+      setImageFile(null);
+      await loadCategories();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update category.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteCategory = async (categoryId: number) => {
+    if (!confirm('Are you sure you want to delete this category? This will also delete all subcategories.')) {
+      return;
+    }
+
+    try {
+      await categoryService.delete(categoryId);
+      toast({
+        title: "Success",
+        description: "Category deleted successfully.",
+      });
+      await loadCategories();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete category.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAddSubcategory = async () => {
+    if (!selectedCategoryId || !subcategoryName) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      let imageUrl = subcategoryImage;
+      
+      if (subcategoryImageFile) {
+        imageUrl = await uploadImageAsBase64(subcategoryImageFile);
+      }
+
+      // Get next subcategory ID
+      const category = categories.find(c => c.id === selectedCategoryId);
+      const nextId = category && category.subcategories.length > 0
+        ? Math.max(...category.subcategories.map(s => s.id)) + 1
+        : selectedCategoryId * 100 + 1;
+
+      await subcategoryService.create({
+        id: nextId,
+        name: subcategoryName,
+        image: imageUrl,
+        productCount: 0,
+        availableAt: subcategoryStoreAvailability,
+        categoryId: selectedCategoryId,
+      } as any);
+
+      toast({
+        title: "Success",
+        description: "Subcategory created successfully.",
+      });
+
+      setSubcategoryName('');
+      setSubcategoryImage('');
+      setSubcategoryStoreAvailability({ hyderabad: true, vizag: false, warangal: false });
+      setSubcategoryImageFile(null);
+      setIsSubcategoryDialogOpen(false);
+      await loadCategories();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create subcategory.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditSubcategory = (subcategory: Subcategory, categoryId: number) => {
+    setEditingSubcategory(subcategory);
+    setSelectedCategoryId(categoryId);
+    setSubcategoryName(subcategory.name);
+    setSubcategoryImage(subcategory.image);
+    setSubcategoryStoreAvailability(subcategory.availableAt || { hyderabad: true, vizag: false, warangal: false });
+    setIsSubcategoryDialogOpen(true);
+  };
+
+  const handleUpdateSubcategory = async () => {
+    if (!editingSubcategory || !subcategoryName) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      let imageUrl = subcategoryImage;
+      
+      if (subcategoryImageFile) {
+        imageUrl = await uploadImageAsBase64(subcategoryImageFile);
+      }
+
+      await subcategoryService.update(editingSubcategory.id, {
+        name: subcategoryName,
+        image: imageUrl,
+        availableAt: subcategoryStoreAvailability,
+      });
+
+      toast({
+        title: "Success",
+        description: "Subcategory updated successfully.",
+      });
+
+      setIsSubcategoryDialogOpen(false);
+      setEditingSubcategory(null);
+      setSubcategoryImageFile(null);
+      await loadCategories();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update subcategory.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteSubcategory = async (subcategoryId: number) => {
+    if (!confirm('Are you sure you want to delete this subcategory?')) {
+      return;
+    }
+
+    try {
+      await subcategoryService.delete(subcategoryId);
+      toast({
+        title: "Success",
+        description: "Subcategory deleted successfully.",
+      });
+      await loadCategories();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete subcategory.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -73,100 +358,99 @@ const AdminCategories = () => {
               Add Category
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New Category</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="catName">Category Name</Label>
-                <Input id="catName" placeholder="Enter category name" />
+                <Label htmlFor="catName">Category Name *</Label>
+                <Input 
+                  id="catName" 
+                  placeholder="Enter category name" 
+                  value={categoryName}
+                  onChange={(e) => setCategoryName(e.target.value)}
+                />
               </div>
               <div>
-                <Label htmlFor="catIcon">Icon (Emoji)</Label>
-                <Input id="catIcon" placeholder="🏆" />
+                <Label htmlFor="catIcon">Icon Name (Lucide icon) *</Label>
+                <Input 
+                  id="catIcon" 
+                  placeholder="Award" 
+                  value={categoryIconName}
+                  onChange={(e) => setCategoryIconName(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Use Lucide icon names (e.g., Award, Home, Gift)</p>
               </div>
               <div>
-                <Label htmlFor="catImage">Cover Image URL</Label>
-                <Input id="catImage" placeholder="https://..." />
+                <Label htmlFor="catImage">Cover Image</Label>
+                <Input 
+                  type="file"
+                  accept="image/*"
+                  id="catImage"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setImageFile(file);
+                      setCategoryImage('');
+                    }
+                  }}
+                />
+                {imageFile && (
+                  <p className="text-xs text-muted-foreground mt-1">Selected: {imageFile.name}</p>
+                )}
+                <Input 
+                  className="mt-2"
+                  placeholder="Or enter image URL"
+                  value={categoryImage}
+                  onChange={(e) => {
+                    setCategoryImage(e.target.value);
+                    setImageFile(null);
+                  }}
+                />
               </div>
               <div>
-                <Label htmlFor="catDesc">Description</Label>
-                <Input id="catDesc" placeholder="Category description" />
+                <Label htmlFor="catDesc">Description *</Label>
+                <Textarea 
+                  id="catDesc" 
+                  placeholder="Category description" 
+                  value={categoryDescription}
+                  onChange={(e) => setCategoryDescription(e.target.value)}
+                />
               </div>
               <div>
                 <Label>Category Available At Stores</Label>
                 <div className="space-y-3 mt-2 p-4 border rounded-lg bg-muted/30">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Hyderabad</span>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs ${categoryStoreAvailability.hyderabad ? 'text-green-600' : 'text-muted-foreground'}`}>
-                        {categoryStoreAvailability.hyderabad ? 'ON' : 'OFF'}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setCategoryStoreAvailability({ ...categoryStoreAvailability, hyderabad: !categoryStoreAvailability.hyderabad })}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          categoryStoreAvailability.hyderabad ? 'bg-primary' : 'bg-muted'
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            categoryStoreAvailability.hyderabad ? 'translate-x-6' : 'translate-x-1'
+                  {(['hyderabad', 'vizag', 'warangal'] as const).map((store) => (
+                    <div key={store} className="flex items-center justify-between">
+                      <span className="text-sm font-medium capitalize">{store === 'vizag' ? 'Visakhapatnam' : store}</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs ${categoryStoreAvailability[store] ? 'text-green-600' : 'text-muted-foreground'}`}>
+                          {categoryStoreAvailability[store] ? 'ON' : 'OFF'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setCategoryStoreAvailability({ ...categoryStoreAvailability, [store]: !categoryStoreAvailability[store] })}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                            categoryStoreAvailability[store] ? 'bg-primary' : 'bg-muted'
                           }`}
-                        />
-                      </button>
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              categoryStoreAvailability[store] ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Visakhapatnam</span>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs ${categoryStoreAvailability.vizag ? 'text-green-600' : 'text-muted-foreground'}`}>
-                        {categoryStoreAvailability.vizag ? 'ON' : 'OFF'}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setCategoryStoreAvailability({ ...categoryStoreAvailability, vizag: !categoryStoreAvailability.vizag })}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          categoryStoreAvailability.vizag ? 'bg-primary' : 'bg-muted'
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            categoryStoreAvailability.vizag ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Warangal</span>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs ${categoryStoreAvailability.warangal ? 'text-green-600' : 'text-muted-foreground'}`}>
-                        {categoryStoreAvailability.warangal ? 'ON' : 'OFF'}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setCategoryStoreAvailability({ ...categoryStoreAvailability, warangal: !categoryStoreAvailability.warangal })}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          categoryStoreAvailability.warangal ? 'bg-primary' : 'bg-muted'
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            categoryStoreAvailability.warangal ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
               <div className="flex justify-end gap-2 pt-4">
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleSaveCategory} className="bg-accent hover:bg-accent/90">
+                <Button onClick={handleAddCategory} className="bg-accent hover:bg-accent/90">
                   Add Category
                 </Button>
               </div>
@@ -174,6 +458,101 @@ const AdminCategories = () => {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Edit Category Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Category</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="editCatName">Category Name *</Label>
+              <Input 
+                id="editCatName" 
+                value={categoryName}
+                onChange={(e) => setCategoryName(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="editCatIcon">Icon Name *</Label>
+              <Input 
+                id="editCatIcon" 
+                value={categoryIconName}
+                onChange={(e) => setCategoryIconName(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="editCatImage">Cover Image</Label>
+              <Input 
+                type="file"
+                accept="image/*"
+                id="editCatImage"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setImageFile(file);
+                    setCategoryImage('');
+                  }
+                }}
+              />
+              <Input 
+                className="mt-2"
+                placeholder="Or enter image URL"
+                value={categoryImage}
+                onChange={(e) => {
+                  setCategoryImage(e.target.value);
+                  setImageFile(null);
+                }}
+              />
+            </div>
+            <div>
+              <Label htmlFor="editCatDesc">Description *</Label>
+              <Textarea 
+                id="editCatDesc" 
+                value={categoryDescription}
+                onChange={(e) => setCategoryDescription(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Category Available At Stores</Label>
+              <div className="space-y-3 mt-2 p-4 border rounded-lg bg-muted/30">
+                {(['hyderabad', 'vizag', 'warangal'] as const).map((store) => (
+                  <div key={store} className="flex items-center justify-between">
+                    <span className="text-sm font-medium capitalize">{store === 'vizag' ? 'Visakhapatnam' : store}</span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs ${categoryStoreAvailability[store] ? 'text-green-600' : 'text-muted-foreground'}`}>
+                        {categoryStoreAvailability[store] ? 'ON' : 'OFF'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setCategoryStoreAvailability({ ...categoryStoreAvailability, [store]: !categoryStoreAvailability[store] })}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          categoryStoreAvailability[store] ? 'bg-primary' : 'bg-muted'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            categoryStoreAvailability[store] ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleUpdateCategory} className="bg-accent hover:bg-accent/90">
+                Update Category
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid gap-6">
         {categories.map((category) => (
@@ -190,7 +569,6 @@ const AdminCategories = () => {
                   </div>
                   <div>
                     <CardTitle className="flex items-center gap-2">
-                      <span className="text-2xl">{category.icon}</span>
                       {category.name}
                     </CardTitle>
                     <p className="text-sm text-muted-foreground mt-1">{category.description}</p>
@@ -198,21 +576,22 @@ const AdminCategories = () => {
                       <span className="text-muted-foreground">
                         {category.subcategories.length} subcategories
                       </span>
-                      <span className="text-muted-foreground">
-                        {getTotalProducts(category.id)} products
-                      </span>
                     </div>
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="ghost" size="icon">
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => handleEditCategory(category)}
+                  >
                     <Pencil className="h-4 w-4" />
                   </Button>
                   <Button 
                     variant="ghost" 
                     size="icon"
                     className="text-destructive hover:text-destructive"
-                    onClick={() => handleDelete('category', category.id)}
+                    onClick={() => handleDeleteCategory(category.id)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -229,7 +608,13 @@ const AdminCategories = () => {
                   open={isSubcategoryDialogOpen && selectedCategoryId === category.id} 
                   onOpenChange={(open) => {
                     setIsSubcategoryDialogOpen(open);
-                    if (open) setSelectedCategoryId(category.id);
+                    if (open) {
+                      setSelectedCategoryId(category.id);
+                      setEditingSubcategory(null);
+                      setSubcategoryName('');
+                      setSubcategoryImage('');
+                      setSubcategoryStoreAvailability({ hyderabad: true, vizag: false, warangal: false });
+                    }
                   }}
                 >
                   <DialogTrigger asChild>
@@ -238,93 +623,86 @@ const AdminCategories = () => {
                       Add Subcategory
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                      <DialogTitle>Add Subcategory to {category.name}</DialogTitle>
+                      <DialogTitle>
+                        {editingSubcategory ? 'Edit' : 'Add'} Subcategory to {category.name}
+                      </DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4">
                       <div>
-                        <Label htmlFor="subName">Subcategory Name</Label>
-                        <Input id="subName" placeholder="Enter subcategory name" />
+                        <Label htmlFor="subName">Subcategory Name *</Label>
+                        <Input 
+                          id="subName" 
+                          placeholder="Enter subcategory name" 
+                          value={subcategoryName}
+                          onChange={(e) => setSubcategoryName(e.target.value)}
+                        />
                       </div>
                       <div>
-                        <Label htmlFor="subImage">Cover Image URL</Label>
-                        <Input id="subImage" placeholder="https://..." />
+                        <Label htmlFor="subImage">Cover Image</Label>
+                        <Input 
+                          type="file"
+                          accept="image/*"
+                          id="subImage"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setSubcategoryImageFile(file);
+                              setSubcategoryImage('');
+                            }
+                          }}
+                        />
+                        {subcategoryImageFile && (
+                          <p className="text-xs text-muted-foreground mt-1">Selected: {subcategoryImageFile.name}</p>
+                        )}
+                        <Input 
+                          className="mt-2"
+                          placeholder="Or enter image URL"
+                          value={subcategoryImage}
+                          onChange={(e) => {
+                            setSubcategoryImage(e.target.value);
+                            setSubcategoryImageFile(null);
+                          }}
+                        />
                       </div>
                       <div>
                         <Label>Subcategory Available At Stores</Label>
                         <div className="space-y-3 mt-2 p-4 border rounded-lg bg-muted/30">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">Hyderabad</span>
-                            <div className="flex items-center gap-2">
-                              <span className={`text-xs ${subcategoryStoreAvailability.hyderabad ? 'text-green-600' : 'text-muted-foreground'}`}>
-                                {subcategoryStoreAvailability.hyderabad ? 'ON' : 'OFF'}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => setSubcategoryStoreAvailability({ ...subcategoryStoreAvailability, hyderabad: !subcategoryStoreAvailability.hyderabad })}
-                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                  subcategoryStoreAvailability.hyderabad ? 'bg-primary' : 'bg-muted'
-                                }`}
-                              >
-                                <span
-                                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                    subcategoryStoreAvailability.hyderabad ? 'translate-x-6' : 'translate-x-1'
+                          {(['hyderabad', 'vizag', 'warangal'] as const).map((store) => (
+                            <div key={store} className="flex items-center justify-between">
+                              <span className="text-sm font-medium capitalize">{store === 'vizag' ? 'Visakhapatnam' : store}</span>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-xs ${subcategoryStoreAvailability[store] ? 'text-green-600' : 'text-muted-foreground'}`}>
+                                  {subcategoryStoreAvailability[store] ? 'ON' : 'OFF'}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setSubcategoryStoreAvailability({ ...subcategoryStoreAvailability, [store]: !subcategoryStoreAvailability[store] })}
+                                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                    subcategoryStoreAvailability[store] ? 'bg-primary' : 'bg-muted'
                                   }`}
-                                />
-                              </button>
+                                >
+                                  <span
+                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                      subcategoryStoreAvailability[store] ? 'translate-x-6' : 'translate-x-1'
+                                    }`}
+                                  />
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">Visakhapatnam</span>
-                            <div className="flex items-center gap-2">
-                              <span className={`text-xs ${subcategoryStoreAvailability.vizag ? 'text-green-600' : 'text-muted-foreground'}`}>
-                                {subcategoryStoreAvailability.vizag ? 'ON' : 'OFF'}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => setSubcategoryStoreAvailability({ ...subcategoryStoreAvailability, vizag: !subcategoryStoreAvailability.vizag })}
-                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                  subcategoryStoreAvailability.vizag ? 'bg-primary' : 'bg-muted'
-                                }`}
-                              >
-                                <span
-                                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                    subcategoryStoreAvailability.vizag ? 'translate-x-6' : 'translate-x-1'
-                                  }`}
-                                />
-                              </button>
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">Warangal</span>
-                            <div className="flex items-center gap-2">
-                              <span className={`text-xs ${subcategoryStoreAvailability.warangal ? 'text-green-600' : 'text-muted-foreground'}`}>
-                                {subcategoryStoreAvailability.warangal ? 'ON' : 'OFF'}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => setSubcategoryStoreAvailability({ ...subcategoryStoreAvailability, warangal: !subcategoryStoreAvailability.warangal })}
-                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                  subcategoryStoreAvailability.warangal ? 'bg-primary' : 'bg-muted'
-                                }`}
-                              >
-                                <span
-                                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                    subcategoryStoreAvailability.warangal ? 'translate-x-6' : 'translate-x-1'
-                                  }`}
-                                />
-                              </button>
-                            </div>
-                          </div>
+                          ))}
                         </div>
                       </div>
                       <div className="flex justify-end gap-2 pt-4">
                         <Button variant="outline" onClick={() => setIsSubcategoryDialogOpen(false)}>
                           Cancel
                         </Button>
-                        <Button onClick={handleSaveSubcategory} className="bg-accent hover:bg-accent/90">
-                          Add Subcategory
+                        <Button 
+                          onClick={editingSubcategory ? handleUpdateSubcategory : handleAddSubcategory} 
+                          className="bg-accent hover:bg-accent/90"
+                        >
+                          {editingSubcategory ? 'Update' : 'Add'} Subcategory
                         </Button>
                       </div>
                     </div>
@@ -347,17 +725,22 @@ const AdminCategories = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-foreground truncate">{subcategory.name}</p>
-                      <p className="text-xs text-muted-foreground">{subcategory.products.length} products</p>
+                      <p className="text-xs text-muted-foreground">{subcategory.productCount || 0} products</p>
                     </div>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8"
+                        onClick={() => handleEditSubcategory(subcategory, category.id)}
+                      >
                         <Pencil className="h-3 w-3" />
                       </Button>
                       <Button 
                         variant="ghost" 
                         size="icon"
                         className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => handleDelete('subcategory', subcategory.id)}
+                        onClick={() => handleDeleteSubcategory(subcategory.id)}
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>

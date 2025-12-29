@@ -89,29 +89,29 @@ const Header = () => {
     <header className="sticky top-0 z-50 w-full bg-card shadow-soft">
       <div className="container mx-auto px-4">
         <div className="flex h-20 items-center justify-between gap-8">
-          {/* Logo */}
+          {/* Logo - Desktop: Logo + Name, Mobile: Logo only */}
           <Link to="/" className="flex-shrink-0 flex items-center gap-3">
             <img 
               src="/assets/logo/logo.png" 
               alt="Damodar Handicrafts Logo" 
               className="w-12 h-12 rounded-full object-cover border-2 border-border"
             />
-            <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground">
+            <h1 className="hidden md:block font-display text-2xl font-semibold tracking-tight text-foreground">
               Damodar Handicrafts
             </h1>
           </Link>
 
-          {/* Store Location */}
+          {/* Store Location - Desktop: Full button, Mobile: Compact */}
           <button
             onClick={() => setShowStoreSelector(true)}
-            className="hidden md:flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-secondary transition-colors text-foreground group"
+            className="flex items-center gap-2 px-2 md:px-4 py-2 rounded-lg hover:bg-secondary transition-colors text-foreground group"
             title="Change store location"
           >
             <MapPin className="h-4 w-4 text-primary" />
             <span className="text-sm font-medium">
               {selectedStore ? selectedStore.city : "Select Store"}
             </span>
-            <ChevronDown className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+            <ChevronDown className="hidden md:block h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
           </button>
 
           {/* Categories Dropdown */}

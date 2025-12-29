@@ -227,15 +227,163 @@ export const categoryService = {
   },
 
   // Create category
-  create: async (category: Omit<Category, 'subcategories'>): Promise<void> => {
+  create: async (category: Omit<Category, 'subcategories'>): Promise<string> => {
     try {
-      await addDoc(collection(db, COLLECTIONS.CATEGORIES), {
+      const docRef = await addDoc(collection(db, COLLECTIONS.CATEGORIES), {
         ...category,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+      return docRef.id;
     } catch (error) {
       console.error('Error creating category:', error);
+      throw error;
+    }
+  },
+
+  // Update category
+  update: async (categoryId: number, updates: Partial<Category>): Promise<void> => {
+    try {
+      const q = query(
+        collection(db, COLLECTIONS.CATEGORIES),
+        where('id', '==', categoryId)
+      );
+      const snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        const docRef = snapshot.docs[0].ref;
+        await updateDoc(docRef, {
+          ...updates,
+          updatedAt: serverTimestamp(),
+        });
+      } else {
+        throw new Error('Category not found');
+      }
+    } catch (error) {
+      console.error('Error updating category:', error);
+      throw error;
+    }
+  },
+
+  // Delete category
+  delete: async (categoryId: number): Promise<void> => {
+    try {
+      const q = query(
+        collection(db, COLLECTIONS.CATEGORIES),
+        where('id', '==', categoryId)
+      );
+      const snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        await deleteDoc(snapshot.docs[0].ref);
+      } else {
+        throw new Error('Category not found');
+      }
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      throw error;
+    }
+  },
+};
+
+// Subcategory Operations
+export const subcategoryService = {
+  // Get all subcategories for a category
+  getByCategory: async (categoryId: number): Promise<Subcategory[]> => {
+    try {
+      const q = query(
+        collection(db, COLLECTIONS.SUBCATEGORIES),
+        where('categoryId', '==', categoryId)
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map((doc) => ({
+        id: doc.data().id,
+        ...doc.data(),
+      })) as Subcategory[];
+    } catch (error) {
+      console.error('Error getting subcategories:', error);
+      throw error;
+    }
+  },
+
+  // Get subcategory by ID
+  getById: async (subcategoryId: number): Promise<Subcategory | null> => {
+    try {
+      const q = query(
+        collection(db, COLLECTIONS.SUBCATEGORIES),
+        where('id', '==', subcategoryId)
+      );
+      const snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        return {
+          id: snapshot.docs[0].data().id,
+          ...snapshot.docs[0].data(),
+        } as Subcategory;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error getting subcategory:', error);
+      throw error;
+    }
+  },
+
+  // Create subcategory
+  create: async (subcategory: Omit<Subcategory, 'products'>): Promise<string> => {
+    try {
+      const docRef = await addDoc(collection(db, COLLECTIONS.SUBCATEGORIES), {
+        ...subcategory,
+        products: [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      return docRef.id;
+    } catch (error) {
+      console.error('Error creating subcategory:', error);
+      throw error;
+    }
+  },
+
+  // Update subcategory
+  update: async (subcategoryId: number, updates: Partial<Subcategory>): Promise<void> => {
+    try {
+      const q = query(
+        collection(db, COLLECTIONS.SUBCATEGORIES),
+        where('id', '==', subcategoryId)
+      );
+      const snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        const docRef = snapshot.docs[0].ref;
+        await updateDoc(docRef, {
+          ...updates,
+          updatedAt: serverTimestamp(),
+        });
+      } else {
+        throw new Error('Subcategory not found');
+      }
+    } catch (error) {
+      console.error('Error updating subcategory:', error);
+      throw error;
+    }
+  },
+
+  // Delete subcategory
+  delete: async (subcategoryId: number): Promise<void> => {
+    try {
+      const q = query(
+        collection(db, COLLECTIONS.SUBCATEGORIES),
+        where('id', '==', subcategoryId)
+      );
+      const snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        await deleteDoc(snapshot.docs[0].ref);
+      } else {
+        throw new Error('Subcategory not found');
+      }
+    } catch (error) {
+      console.error('Error deleting subcategory:', error);
       throw error;
     }
   },
