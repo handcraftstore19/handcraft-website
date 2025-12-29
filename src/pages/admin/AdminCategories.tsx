@@ -9,6 +9,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Plus, Pencil, Trash2, FolderTree, Loader2 } from 'lucide-react';
@@ -30,7 +31,8 @@ const AdminCategories = () => {
   
   // Form states
   const [categoryName, setCategoryName] = useState('');
-  const [categoryIconName, setCategoryIconName] = useState('');
+  const [categoryIcon, setCategoryIcon] = useState('');
+  const [categoryIconFile, setCategoryIconFile] = useState<File | null>(null);
   const [categoryImage, setCategoryImage] = useState('');
   const [categoryDescription, setCategoryDescription] = useState('');
   const [categoryStoreAvailability, setCategoryStoreAvailability] = useState<StoreAvailability>({
@@ -40,6 +42,8 @@ const AdminCategories = () => {
   });
   
   const [subcategoryName, setSubcategoryName] = useState('');
+  const [subcategoryIcon, setSubcategoryIcon] = useState('');
+  const [subcategoryIconFile, setSubcategoryIconFile] = useState<File | null>(null);
   const [subcategoryImage, setSubcategoryImage] = useState('');
   const [subcategoryStoreAvailability, setSubcategoryStoreAvailability] = useState<StoreAvailability>({
     hyderabad: true,
@@ -82,7 +86,7 @@ const AdminCategories = () => {
   };
 
   const handleAddCategory = async () => {
-    if (!categoryName || !categoryIconName || !categoryDescription) {
+    if (!categoryName || !categoryDescription) {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields.",
@@ -93,10 +97,16 @@ const AdminCategories = () => {
 
     try {
       let imageUrl = categoryImage;
+      let iconUrl = categoryIcon;
       
       // If image file is provided, upload it
       if (imageFile) {
         imageUrl = await uploadImageAsBase64(imageFile);
+      }
+      
+      // If icon file is provided, upload it
+      if (categoryIconFile) {
+        iconUrl = await uploadImageAsBase64(categoryIconFile);
       }
 
       // Get next ID (simple increment - in production, use a better ID system)
@@ -104,14 +114,24 @@ const AdminCategories = () => {
         ? Math.max(...categories.map(c => c.id)) + 1 
         : 1;
 
-      await categoryService.create({
+      // Ensure we only pass clean data to Firestore (no File objects)
+      const categoryData: any = {
         id: nextId,
         name: categoryName,
-        iconName: categoryIconName,
-        image: imageUrl,
+        iconName: iconUrl || '', // Store icon as base64 string (or URL if provided)
+        image: imageUrl || '', // Ensure it's a string, not a File object
         description: categoryDescription,
         availableAt: categoryStoreAvailability,
+      };
+      
+      // Remove any undefined or null values that might cause issues
+      Object.keys(categoryData).forEach(key => {
+        if (categoryData[key] === undefined || categoryData[key] === null) {
+          delete categoryData[key];
+        }
       });
+      
+      await categoryService.create(categoryData);
 
       toast({
         title: "Success",
@@ -120,7 +140,8 @@ const AdminCategories = () => {
 
       // Reset form
       setCategoryName('');
-      setCategoryIconName('');
+      setCategoryIcon('');
+      setCategoryIconFile(null);
       setCategoryImage('');
       setCategoryDescription('');
       setCategoryStoreAvailability({ hyderabad: true, vizag: false, warangal: false });
@@ -141,7 +162,8 @@ const AdminCategories = () => {
   const handleEditCategory = (category: Category) => {
     setSelectedCategory(category);
     setCategoryName(category.name);
-    setCategoryIconName(category.iconName);
+    setCategoryIcon(category.iconName || ''); // iconName stores the icon URL/base64
+    setCategoryIconFile(null);
     setCategoryImage(category.image);
     setCategoryDescription(category.description);
     setCategoryStoreAvailability(category.availableAt || { hyderabad: true, vizag: false, warangal: false });
@@ -149,7 +171,7 @@ const AdminCategories = () => {
   };
 
   const handleUpdateCategory = async () => {
-    if (!selectedCategory || !categoryName || !categoryIconName || !categoryDescription) {
+    if (!selectedCategory || !categoryName || !categoryDescription) {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields.",
@@ -160,18 +182,34 @@ const AdminCategories = () => {
 
     try {
       let imageUrl = categoryImage;
+      let iconUrl = categoryIcon;
       
       if (imageFile) {
         imageUrl = await uploadImageAsBase64(imageFile);
       }
+      
+      // If icon file is provided, upload it
+      if (categoryIconFile) {
+        iconUrl = await uploadImageAsBase64(categoryIconFile);
+      }
 
-      await categoryService.update(selectedCategory.id, {
+      // Ensure we only pass clean data to Firestore (no File objects)
+      const updateData: any = {
         name: categoryName,
-        iconName: categoryIconName,
-        image: imageUrl,
+        iconName: iconUrl || categoryIcon || '', // Use new icon or keep existing
+        image: imageUrl || '', // Ensure it's a string, not a File object
         description: categoryDescription,
         availableAt: categoryStoreAvailability,
+      };
+      
+      // Remove any undefined or null values
+      Object.keys(updateData).forEach(key => {
+        if (updateData[key] === undefined || updateData[key] === null) {
+          delete updateData[key];
+        }
       });
+      
+      await categoryService.update(selectedCategory.id, updateData);
 
       toast({
         title: "Success",
@@ -181,6 +219,7 @@ const AdminCategories = () => {
       setIsEditDialogOpen(false);
       setSelectedCategory(null);
       setImageFile(null);
+      setCategoryIconFile(null);
       await loadCategories();
     } catch (error: any) {
       toast({
@@ -235,14 +274,34 @@ const AdminCategories = () => {
         ? Math.max(...category.subcategories.map(s => s.id)) + 1
         : selectedCategoryId * 100 + 1;
 
-      await subcategoryService.create({
+      let subcategoryIconUrl = '';
+      
+      // If icon file is provided, upload it
+      if (subcategoryIconFile) {
+        subcategoryIconUrl = await uploadImageAsBase64(subcategoryIconFile);
+      } else if (subcategoryIcon) {
+        subcategoryIconUrl = subcategoryIcon;
+      }
+
+      // Ensure we only pass clean data to Firestore (no File objects)
+      const subcategoryData: any = {
         id: nextId,
         name: subcategoryName,
-        image: imageUrl,
+        image: imageUrl || '', // Ensure it's a string, not a File object
+        iconName: subcategoryIconUrl || '', // Store icon as base64 string
         productCount: 0,
         availableAt: subcategoryStoreAvailability,
         categoryId: selectedCategoryId,
-      } as any);
+      };
+      
+      // Remove any undefined or null values
+      Object.keys(subcategoryData).forEach(key => {
+        if (subcategoryData[key] === undefined || subcategoryData[key] === null) {
+          delete subcategoryData[key];
+        }
+      });
+      
+      await subcategoryService.create(subcategoryData);
 
       toast({
         title: "Success",
@@ -250,6 +309,8 @@ const AdminCategories = () => {
       });
 
       setSubcategoryName('');
+      setSubcategoryIcon('');
+      setSubcategoryIconFile(null);
       setSubcategoryImage('');
       setSubcategoryStoreAvailability({ hyderabad: true, vizag: false, warangal: false });
       setSubcategoryImageFile(null);
@@ -268,6 +329,8 @@ const AdminCategories = () => {
     setEditingSubcategory(subcategory);
     setSelectedCategoryId(categoryId);
     setSubcategoryName(subcategory.name);
+    setSubcategoryIcon((subcategory as any).iconName || '');
+    setSubcategoryIconFile(null);
     setSubcategoryImage(subcategory.image);
     setSubcategoryStoreAvailability(subcategory.availableAt || { hyderabad: true, vizag: false, warangal: false });
     setIsSubcategoryDialogOpen(true);
@@ -290,11 +353,31 @@ const AdminCategories = () => {
         imageUrl = await uploadImageAsBase64(subcategoryImageFile);
       }
 
-      await subcategoryService.update(editingSubcategory.id, {
+      let subcategoryIconUrl = '';
+      
+      // If icon file is provided, upload it
+      if (subcategoryIconFile) {
+        subcategoryIconUrl = await uploadImageAsBase64(subcategoryIconFile);
+      } else if (subcategoryIcon) {
+        subcategoryIconUrl = subcategoryIcon;
+      }
+
+      // Ensure we only pass clean data to Firestore (no File objects)
+      const updateData: any = {
         name: subcategoryName,
-        image: imageUrl,
+        image: imageUrl || '', // Ensure it's a string, not a File object
+        iconName: subcategoryIconUrl || '', // Store icon as base64 string
         availableAt: subcategoryStoreAvailability,
+      };
+      
+      // Remove any undefined or null values
+      Object.keys(updateData).forEach(key => {
+        if (updateData[key] === undefined || updateData[key] === null) {
+          delete updateData[key];
+        }
       });
+      
+      await subcategoryService.update(editingSubcategory.id, updateData);
 
       toast({
         title: "Success",
@@ -304,6 +387,7 @@ const AdminCategories = () => {
       setIsSubcategoryDialogOpen(false);
       setEditingSubcategory(null);
       setSubcategoryImageFile(null);
+      setSubcategoryIconFile(null);
       await loadCategories();
     } catch (error: any) {
       toast({
@@ -361,6 +445,7 @@ const AdminCategories = () => {
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New Category</DialogTitle>
+              <DialogDescription>Create a new product category with icon and cover image.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div>
@@ -373,14 +458,32 @@ const AdminCategories = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="catIcon">Icon Name (Lucide icon) *</Label>
+                <Label htmlFor="catIcon">Category Icon *</Label>
                 <Input 
-                  id="catIcon" 
-                  placeholder="Award" 
-                  value={categoryIconName}
-                  onChange={(e) => setCategoryIconName(e.target.value)}
+                  type="file"
+                  accept="image/*"
+                  id="catIcon"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setCategoryIconFile(file);
+                      setCategoryIcon('');
+                    }
+                  }}
                 />
-                <p className="text-xs text-muted-foreground mt-1">Use Lucide icon names (e.g., Award, Home, Gift)</p>
+                {categoryIconFile && (
+                  <p className="text-xs text-muted-foreground mt-1">Selected: {categoryIconFile.name}</p>
+                )}
+                <Input 
+                  className="mt-2"
+                  placeholder="Or enter icon URL"
+                  value={categoryIcon}
+                  onChange={(e) => {
+                    setCategoryIcon(e.target.value);
+                    setCategoryIconFile(null);
+                  }}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Upload an icon image file or provide a URL</p>
               </div>
               <div>
                 <Label htmlFor="catImage">Cover Image</Label>
@@ -464,6 +567,7 @@ const AdminCategories = () => {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Category</DialogTitle>
+            <DialogDescription>Update category details, icon, and cover image.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -475,11 +579,35 @@ const AdminCategories = () => {
               />
             </div>
             <div>
-              <Label htmlFor="editCatIcon">Icon Name *</Label>
+              <Label htmlFor="editCatIcon">Category Icon *</Label>
               <Input 
-                id="editCatIcon" 
-                value={categoryIconName}
-                onChange={(e) => setCategoryIconName(e.target.value)}
+                type="file"
+                accept="image/*"
+                id="editCatIcon"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setCategoryIconFile(file);
+                    setCategoryIcon('');
+                  }
+                }}
+              />
+              {categoryIconFile && (
+                <p className="text-xs text-muted-foreground mt-1">Selected: {categoryIconFile.name}</p>
+              )}
+              {categoryIcon && !categoryIconFile && (
+                <div className="mt-2">
+                  <img src={categoryIcon} alt="Current icon" className="w-12 h-12 object-cover rounded" />
+                </div>
+              )}
+              <Input 
+                className="mt-2"
+                placeholder="Or enter icon URL"
+                value={categoryIcon}
+                onChange={(e) => {
+                  setCategoryIcon(e.target.value);
+                  setCategoryIconFile(null);
+                }}
               />
             </div>
             <div>
@@ -612,6 +740,8 @@ const AdminCategories = () => {
                       setSelectedCategoryId(category.id);
                       setEditingSubcategory(null);
                       setSubcategoryName('');
+                      setSubcategoryIcon('');
+                      setSubcategoryIconFile(null);
                       setSubcategoryImage('');
                       setSubcategoryStoreAvailability({ hyderabad: true, vizag: false, warangal: false });
                     }
@@ -628,6 +758,9 @@ const AdminCategories = () => {
                       <DialogTitle>
                         {editingSubcategory ? 'Edit' : 'Add'} Subcategory to {category.name}
                       </DialogTitle>
+                      <DialogDescription>
+                        {editingSubcategory ? 'Update' : 'Create'} a subcategory with icon and cover image.
+                      </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
                       <div>
@@ -637,6 +770,38 @@ const AdminCategories = () => {
                           placeholder="Enter subcategory name" 
                           value={subcategoryName}
                           onChange={(e) => setSubcategoryName(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="subIcon">Subcategory Icon *</Label>
+                        <Input 
+                          type="file"
+                          accept="image/*"
+                          id="subIcon"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setSubcategoryIconFile(file);
+                              setSubcategoryIcon('');
+                            }
+                          }}
+                        />
+                        {subcategoryIconFile && (
+                          <p className="text-xs text-muted-foreground mt-1">Selected: {subcategoryIconFile.name}</p>
+                        )}
+                        {subcategoryIcon && !subcategoryIconFile && (
+                          <div className="mt-2">
+                            <img src={subcategoryIcon} alt="Current icon" className="w-12 h-12 object-cover rounded" />
+                          </div>
+                        )}
+                        <Input 
+                          className="mt-2"
+                          placeholder="Or enter icon URL"
+                          value={subcategoryIcon}
+                          onChange={(e) => {
+                            setSubcategoryIcon(e.target.value);
+                            setSubcategoryIconFile(null);
+                          }}
                         />
                       </div>
                       <div>

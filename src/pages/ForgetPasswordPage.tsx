@@ -24,6 +24,7 @@ const ForgetPasswordPage = () => {
   const [countdown, setCountdown] = useState(0);
   const [step, setStep] = useState<'phone' | 'otp' | 'password'>('phone');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [sendingOTP, setSendingOTP] = useState(false);
   const { forgetPassword, resetPassword, sendOTP } = useAuth();
@@ -73,21 +74,9 @@ const ForgetPasswordPage = () => {
       return;
     }
 
-    setLoading(true);
-    // Combine country code with phone number
-    const phoneNumber = phone.startsWith('+') ? phone : `${selectedCountry.dialCode}${phone.replace(/\D/g, '')}`;
-    const formattedPhone = formatPhoneNumber(phoneNumber);
-    
-    try {
-      // For now, just verify OTP and move to password step
-      // In production, you'd verify the OTP here
-      await sendOTP(formattedPhone);
-      setStep('password');
-    } catch (err: any) {
-      setError(err.message || 'Invalid OTP. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+    // Just move to password step - OTP will be verified when resetting password
+    // This prevents sending a new OTP which would invalidate the current one
+    setStep('password');
   };
 
   const handleResetPassword = async (e: React.FormEvent) => {
@@ -112,12 +101,14 @@ const ForgetPasswordPage = () => {
     try {
       await resetPassword(formattedPhone, otp, newPassword);
       // Show success message
-      setError('Password reset email sent! Please check your email to complete the process.');
+      setError('');
+      setSuccess('Password reset successfully! Redirecting to login...');
       setTimeout(() => {
         navigate('/login');
-      }, 3000);
+      }, 2000);
     } catch (err: any) {
       setError(err.message || 'Failed to reset password');
+      setSuccess('');
     } finally {
       setLoading(false);
     }
@@ -278,12 +269,13 @@ const ForgetPasswordPage = () => {
 
             {step === 'password' && (
               <form onSubmit={handleResetPassword} className="space-y-4">
+                {success && (
+                  <div className="p-3 rounded-lg bg-green-500/10 text-green-600 text-sm">
+                    {success}
+                  </div>
+                )}
                 {error && (
-                  <div className={`p-3 rounded-lg text-sm ${
-                    error.includes('sent') 
-                      ? 'bg-green-500/10 text-green-600' 
-                      : 'bg-destructive/10 text-destructive'
-                  }`}>
+                  <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
                     {error}
                   </div>
                 )}

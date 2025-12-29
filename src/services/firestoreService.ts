@@ -30,6 +30,8 @@ const COLLECTIONS = {
   ORDERS: 'orders',
   REVIEWS: 'reviews',
   WISHLISTS: 'wishlists',
+  COUPONS: 'coupons',
+  CAROUSELS: 'carousels',
 } as const;
 
 // Convert Firestore timestamp to date
@@ -433,6 +435,26 @@ export const orderService = {
     }
   },
 
+  // Get all orders (for admin)
+  getAll: async (): Promise<any[]> => {
+    try {
+      const q = query(
+        collection(db, COLLECTIONS.ORDERS),
+        orderBy('createdAt', 'desc')
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: timestampToDate(doc.data().createdAt),
+        updatedAt: timestampToDate(doc.data().updatedAt),
+      }));
+    } catch (error) {
+      console.error('Error getting all orders:', error);
+      throw error;
+    }
+  },
+
   // Update order status
   updateStatus: async (orderId: string, status: string): Promise<void> => {
     try {
@@ -545,6 +567,142 @@ export const wishlistService = {
       await Promise.all(snapshot.docs.map((doc) => deleteDoc(doc.ref)));
     } catch (error) {
       console.error('Error removing from wishlist:', error);
+      throw error;
+    }
+  },
+};
+
+// Coupon Operations
+export const couponService = {
+  // Get all coupons
+  getAll: async (): Promise<any[]> => {
+    try {
+      const snapshot = await getDocs(collection(db, COLLECTIONS.COUPONS));
+      return snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        expiry: doc.data().expiry?.toDate?.()?.toISOString()?.split('T')[0] || doc.data().expiry,
+      }));
+    } catch (error) {
+      console.error('Error getting coupons:', error);
+      throw error;
+    }
+  },
+
+  // Create coupon
+  create: async (coupon: {
+    code: string;
+    type: 'percentage' | 'flat';
+    value: number;
+    minOrder: number;
+    maxDiscount?: number;
+    usageLimit: number;
+    active: boolean;
+    expiry: string;
+  }): Promise<string> => {
+    try {
+      const docRef = await addDoc(collection(db, COLLECTIONS.COUPONS), {
+        ...coupon,
+        used: 0,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      return docRef.id;
+    } catch (error) {
+      console.error('Error creating coupon:', error);
+      throw error;
+    }
+  },
+
+  // Update coupon
+  update: async (couponId: string, updates: Partial<any>): Promise<void> => {
+    try {
+      const docRef = doc(db, COLLECTIONS.COUPONS, couponId);
+      await updateDoc(docRef, {
+        ...updates,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error('Error updating coupon:', error);
+      throw error;
+    }
+  },
+
+  // Delete coupon
+  delete: async (couponId: string): Promise<void> => {
+    try {
+      const docRef = doc(db, COLLECTIONS.COUPONS, couponId);
+      await deleteDoc(docRef);
+    } catch (error) {
+      console.error('Error deleting coupon:', error);
+      throw error;
+    }
+  },
+};
+
+// Carousel Operations
+export const carouselService = {
+  // Get all carousels
+  getAll: async (): Promise<any[]> => {
+    try {
+      const q = query(
+        collection(db, COLLECTIONS.CAROUSELS),
+        orderBy('order', 'asc')
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+    } catch (error) {
+      console.error('Error getting carousels:', error);
+      throw error;
+    }
+  },
+
+  // Create carousel
+  create: async (carousel: {
+    title: string;
+    subtitle: string;
+    image: string;
+    link: string;
+    active: boolean;
+    order: number;
+  }): Promise<string> => {
+    try {
+      const docRef = await addDoc(collection(db, COLLECTIONS.CAROUSELS), {
+        ...carousel,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      return docRef.id;
+    } catch (error) {
+      console.error('Error creating carousel:', error);
+      throw error;
+    }
+  },
+
+  // Update carousel
+  update: async (carouselId: string, updates: Partial<any>): Promise<void> => {
+    try {
+      const docRef = doc(db, COLLECTIONS.CAROUSELS, carouselId);
+      await updateDoc(docRef, {
+        ...updates,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error('Error updating carousel:', error);
+      throw error;
+    }
+  },
+
+  // Delete carousel
+  delete: async (carouselId: string): Promise<void> => {
+    try {
+      const docRef = doc(db, COLLECTIONS.CAROUSELS, carouselId);
+      await deleteDoc(docRef);
+    } catch (error) {
+      console.error('Error deleting carousel:', error);
       throw error;
     }
   },

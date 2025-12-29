@@ -11,6 +11,10 @@ import {
   ConfirmationResult,
   updateProfile,
   sendPasswordResetEmail,
+  updatePassword,
+  linkWithCredential,
+  PhoneAuthProvider,
+  EmailAuthProvider,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, query, where, getDocs, collection, serverTimestamp } from 'firebase/firestore';
 import { auth, db, googleProvider } from '@/lib/firebase';
@@ -475,12 +479,9 @@ For detailed steps, see FIREBASE_PHONE_AUTH_FIX.md`;
         throw new Error('OTP not sent. Please request password reset first.');
       }
 
-      // Verify OTP
-      await confirmationResult.confirm(otp);
-      
       const formattedPhone = phone.startsWith('+') ? phone : `+${phone}`;
       
-      // Find user by phone
+      // Find user by phone in Firestore to get their email and UID
       const usersRef = collection(db, 'users');
       const q = query(usersRef, where('phone', '==', formattedPhone));
       const querySnapshot = await getDocs(q);
@@ -491,19 +492,115 @@ For detailed steps, see FIREBASE_PHONE_AUTH_FIX.md`;
       
       const userDoc = querySnapshot.docs[0];
       const userData = userDoc.data();
+      const emailPasswordUserId = userDoc.id; // This is the UID of the email/password account
       
       if (!userData.email) {
         throw new Error('Account not properly set up.');
       }
+
+      // Verify OTP - this signs the user in with phone authentication
+      const result = await confirmationResult.confirm(otp);
+      const phoneAuthUser = result.user;
       
-      // Sign in with email to update password
-      // Note: In production, you'd use Firebase Admin SDK to update password
-      // For now, we'll use the email link method
-      // User needs to click the email link to reset password
-      throw new Error('Please check your email for password reset link. OTP verified successfully.');
+      // Check if the phone auth user has a password provider linked
+      const hasPasswordProvider = phoneAuthUser.providerData.some(
+        provider => provider.providerId === 'password'
+      );
       
+      // Check if the phone auth user's UID matches the email/password account's UID
+      if (phoneAuthUser.uid === emailPasswordUserId && hasPasswordProvider) {
+        // Same user with password provider - can directly update password
+        try {
+          await updatePassword(phoneAuthUser, newPassword);
+          
+          // Sign out and sign in with new password to ensure session is fresh
+          await signOut(auth);
+          await signInWithEmailAndPassword(auth, userData.email, newPassword);
+        } catch (updateError: any) {
+          // If updatePassword fails, fall back to email reset
+          await signOut(auth);
+          await sendPasswordResetEmail(auth, userData.email);
+          
+          // Clean up
+          confirmationResult = null;
+          if (recaptchaVerifier) {
+            try {
+              recaptchaVerifier.clear();
+            } catch (e) {
+              // Ignore cleanup errors
+            }
+            recaptchaVerifier = null;
+          }
+          
+          throw new Error('Password reset email sent. Please check your email to complete the password reset. OTP verified successfully.');
+        }
+      } else {
+        // Different UIDs - phone auth created a separate account
+        // The phone auth user doesn't have the email/password account's password
+        // We need to sign in to the email/password account to update password, but we don't have old password
+        // Solution: Sign out from phone auth and send password reset email
+        await signOut(auth);
+        
+        // Send password reset email - user will get a link to reset password
+        await sendPasswordResetEmail(auth, userData.email);
+        
+        // Clean up
+        confirmationResult = null;
+        if (recaptchaVerifier) {
+          try {
+            recaptchaVerifier.clear();
+          } catch (e) {
+            // Ignore cleanup errors
+          }
+          recaptchaVerifier = null;
+        }
+        
+        throw new Error('Password reset email sent. Please check your email to complete the password reset. OTP verified successfully.');
+      }
+      
+      // Clean up
+      confirmationResult = null;
+      if (recaptchaVerifier) {
+        try {
+          recaptchaVerifier.clear();
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+        recaptchaVerifier = null;
+      }
+
+      return true;
     } catch (error: any) {
       console.error('Reset password error:', error);
+      
+      // Clean up on error
+      if (recaptchaVerifier) {
+        try {
+          recaptchaVerifier.clear();
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+        recaptchaVerifier = null;
+      }
+      confirmationResult = null;
+      
+      // If error message already contains our custom message, re-throw it
+      if (error.message && error.message.includes('Password reset email sent')) {
+        throw error;
+      }
+      
+      // Provide user-friendly error messages
+      if (error.code === 'auth/weak-password') {
+        throw new Error('Password is too weak. Please choose a stronger password.');
+      } else if (error.code === 'auth/requires-recent-login') {
+        throw new Error('Please verify OTP again to reset password.');
+      } else if (error.code === 'auth/invalid-verification-code' || error.code === 'auth/code-expired') {
+        throw new Error('Invalid or expired OTP. Please request a new one.');
+      } else if (error.code === 'auth/operation-not-allowed') {
+        // Phone auth user doesn't have password - need to link or use email reset
+        throw new Error('Password reset requires email verification. Please check your email for reset instructions.');
+      }
+      
       throw new Error(error.message || 'Failed to reset password');
     }
   };
