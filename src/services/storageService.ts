@@ -24,30 +24,41 @@ export const uploadProductImage = async (
     }
 
     // Compress image (max 1MB)
-    const compressedBase64 = await compressImageToBase64(file, 1024 * 1024); // 1MB
+    const compressResult = await compressImageToBase64(file, { maxSizeMB: 1 }); // 1MB
     
-    // Convert base64 back to blob for upload
-    const response = await fetch(compressedBase64);
-    const blob = await response.blob();
+    // Convert base64 data URL to blob
+    const base64Response = await fetch(compressResult.base64);
+    if (!base64Response.ok) {
+      throw new Error('Failed to convert base64 to blob');
+    }
+    const blob = await base64Response.blob();
 
     // Create storage reference
     const timestamp = Date.now();
+    const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
     const fileName = productId 
-      ? `products/${productId}/${timestamp}_${file.name}`
-      : `products/${timestamp}_${file.name}`;
+      ? `products/${productId}/${timestamp}_${sanitizedFileName}`
+      : `products/${timestamp}_${sanitizedFileName}`;
     
     const storageRef = ref(storage, fileName);
 
     // Upload file
+    console.log('Uploading image to Firebase Storage:', fileName);
     await uploadBytes(storageRef, blob);
+    console.log('Image uploaded successfully');
 
     // Get download URL
     const downloadURL = await getDownloadURL(storageRef);
+    console.log('Download URL:', downloadURL);
+    
+    if (!downloadURL || !downloadURL.startsWith('https://')) {
+      throw new Error('Invalid download URL received from Firebase Storage');
+    }
     
     return downloadURL;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error uploading product image:', error);
-    throw error;
+    throw new Error(error.message || 'Failed to upload image to Firebase Storage');
   }
 };
 
@@ -81,8 +92,8 @@ export const deleteProductImage = async (imageUrl: string): Promise<void> => {
 export const uploadImageAsBase64 = async (file: File): Promise<string> => {
   try {
     // Compress to base64 (max 500KB for categories)
-    const base64 = await compressImageToBase64(file, 500 * 1024);
-    return base64;
+    const compressResult = await compressImageToBase64(file, { maxSizeMB: 0.5 });
+    return compressResult.base64;
   } catch (error) {
     console.error('Error converting image to base64:', error);
     throw error;

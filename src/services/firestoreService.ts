@@ -164,6 +164,26 @@ export const categoryService = {
       const categories = await Promise.all(
         snapshot.docs.map(async (doc) => {
           const data = doc.data();
+          
+          // Convert iconName and image to strings if they're objects
+          let iconName = data.iconName;
+          if (typeof iconName === 'object' && iconName !== null) {
+            iconName = iconName.toString() || '';
+          } else if (iconName === undefined || iconName === null) {
+            iconName = '';
+          } else {
+            iconName = String(iconName);
+          }
+
+          let image = data.image;
+          if (typeof image === 'object' && image !== null) {
+            image = image.toString() || '';
+          } else if (image === undefined || image === null) {
+            image = '';
+          } else {
+            image = String(image);
+          }
+
           // Get subcategories for this category
           const subcategoriesSnapshot = await getDocs(
             query(
@@ -171,14 +191,44 @@ export const categoryService = {
               where('categoryId', '==', data.id)
             )
           );
-          const subcategories = subcategoriesSnapshot.docs.map((subDoc) => ({
-            id: subDoc.data().id,
-            ...subDoc.data(),
-          })) as Subcategory[];
+          const subcategories = subcategoriesSnapshot.docs.map((subDoc) => {
+            const subData = subDoc.data();
+            // Convert iconName to string for subcategories too
+            let subIconName = subData.iconName;
+            if (typeof subIconName === 'object' && subIconName !== null) {
+              subIconName = subIconName.toString() || '';
+            } else if (subIconName === undefined || subIconName === null) {
+              subIconName = '';
+            } else {
+              subIconName = String(subIconName);
+            }
+
+            let subImage = subData.image;
+            if (typeof subImage === 'object' && subImage !== null) {
+              subImage = subImage.toString() || '';
+            } else if (subImage === undefined || subImage === null) {
+              subImage = '';
+            } else {
+              subImage = String(subImage);
+            }
+
+            return {
+              id: subData.id,
+              name: subData.name || '',
+              productCount: subData.productCount || 0,
+              products: [],
+              iconName: subIconName,
+              image: subImage,
+              categoryId: subData.categoryId,
+              availableAt: subData.availableAt,
+            } as Subcategory;
+          });
 
           return {
             id: data.id,
             ...data,
+            iconName,
+            image,
             subcategories,
           } as Category;
         })
@@ -203,6 +253,25 @@ export const categoryService = {
         const doc = snapshot.docs[0];
         const data = doc.data();
         
+        // Convert iconName and image to strings if they're objects
+        let iconName = data.iconName;
+        if (typeof iconName === 'object' && iconName !== null) {
+          iconName = iconName.toString() || '';
+        } else if (iconName === undefined || iconName === null) {
+          iconName = '';
+        } else {
+          iconName = String(iconName);
+        }
+
+        let image = data.image;
+        if (typeof image === 'object' && image !== null) {
+          image = image.toString() || '';
+        } else if (image === undefined || image === null) {
+          image = '';
+        } else {
+          image = String(image);
+        }
+        
         // Get subcategories
         const subcategoriesSnapshot = await getDocs(
           query(
@@ -210,14 +279,44 @@ export const categoryService = {
             where('categoryId', '==', categoryId)
           )
         );
-        const subcategories = subcategoriesSnapshot.docs.map((subDoc) => ({
-          id: subDoc.data().id,
-          ...subDoc.data(),
-        })) as Subcategory[];
+        const subcategories = subcategoriesSnapshot.docs.map((subDoc) => {
+          const subData = subDoc.data();
+          // Convert iconName to string for subcategories too
+          let subIconName = subData.iconName;
+          if (typeof subIconName === 'object' && subIconName !== null) {
+            subIconName = subIconName.toString() || '';
+          } else if (subIconName === undefined || subIconName === null) {
+            subIconName = '';
+          } else {
+            subIconName = String(subIconName);
+          }
+
+          let subImage = subData.image;
+          if (typeof subImage === 'object' && subImage !== null) {
+            subImage = subImage.toString() || '';
+          } else if (subImage === undefined || subImage === null) {
+            subImage = '';
+          } else {
+            subImage = String(subImage);
+          }
+
+          return {
+            id: subData.id,
+            name: subData.name || '',
+            productCount: subData.productCount || 0,
+            products: [],
+            iconName: subIconName,
+            image: subImage,
+            categoryId: subData.categoryId,
+            availableAt: subData.availableAt,
+          } as Subcategory;
+        });
 
         return {
           id: data.id,
           ...data,
+          iconName,
+          image,
           subcategories,
         } as Category;
       }

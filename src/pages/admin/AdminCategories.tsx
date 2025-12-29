@@ -141,17 +141,29 @@ const AdminCategories = () => {
         ? Math.max(...categories.map(c => c.id)) + 1 
         : 1;
 
+      // Ensure iconUrl and imageUrl are strings, not objects
+      const finalIconUrl = typeof iconUrl === 'string' ? iconUrl : (iconUrl ? String(iconUrl) : '');
+      const finalImageUrl = typeof imageUrl === 'string' ? imageUrl : (imageUrl ? String(imageUrl) : '');
+
       const categoryData: any = {
         id: nextId,
         name: categoryName,
-        iconName: String(iconUrl || ''), // Ensure it's a string
-        image: String(imageUrl || ''), // Ensure it's a string
+        iconName: finalIconUrl, // Already a string
+        image: finalImageUrl, // Already a string
         description: categoryDescription,
         availableAt: categoryStoreAvailability,
       };
       
       // Sanitize the entire object to remove any File objects or nested File objects
       const sanitizedData = sanitizeData(categoryData);
+      
+      // Ensure iconName and image are strings after sanitization
+      if (sanitizedData.iconName && typeof sanitizedData.iconName !== 'string') {
+        sanitizedData.iconName = String(sanitizedData.iconName);
+      }
+      if (sanitizedData.image && typeof sanitizedData.image !== 'string') {
+        sanitizedData.image = String(sanitizedData.image);
+      }
       
       // Remove any null or undefined values
       Object.keys(sanitizedData).forEach(key => {
@@ -160,6 +172,7 @@ const AdminCategories = () => {
         }
       });
       
+      console.log('Creating category with data:', { ...sanitizedData, iconName: sanitizedData.iconName?.substring(0, 50), image: sanitizedData.image?.substring(0, 50) });
       await categoryService.create(sanitizedData);
 
       toast({
@@ -222,17 +235,29 @@ const AdminCategories = () => {
         iconUrl = await uploadImageAsBase64(categoryIconFile);
       }
 
+      // Ensure iconUrl and imageUrl are strings, not objects
+      const finalIconUrl = typeof iconUrl === 'string' ? iconUrl : (iconUrl ? String(iconUrl) : (categoryIcon || ''));
+      const finalImageUrl = typeof imageUrl === 'string' ? imageUrl : (imageUrl ? String(imageUrl) : '');
+
       // Ensure we only pass clean data to Firestore (no File objects)
       const updateData: any = {
         name: categoryName,
-        iconName: String(iconUrl || categoryIcon || ''), // Ensure it's a string
-        image: String(imageUrl || ''), // Ensure it's a string
+        iconName: finalIconUrl, // Already a string
+        image: finalImageUrl, // Already a string
         description: categoryDescription,
         availableAt: categoryStoreAvailability,
       };
       
       // Sanitize the entire object to remove any File objects or nested File objects
       const sanitizedData = sanitizeData(updateData);
+      
+      // Ensure iconName and image are strings after sanitization
+      if (sanitizedData.iconName && typeof sanitizedData.iconName !== 'string') {
+        sanitizedData.iconName = String(sanitizedData.iconName);
+      }
+      if (sanitizedData.image && typeof sanitizedData.image !== 'string') {
+        sanitizedData.image = String(sanitizedData.image);
+      }
       
       // Remove any null or undefined values
       Object.keys(sanitizedData).forEach(key => {
@@ -241,6 +266,7 @@ const AdminCategories = () => {
         }
       });
       
+      console.log('Updating category with data:', { ...sanitizedData, iconName: sanitizedData.iconName?.substring(0, 50), image: sanitizedData.image?.substring(0, 50) });
       await categoryService.update(selectedCategory.id, sanitizedData);
 
       toast({

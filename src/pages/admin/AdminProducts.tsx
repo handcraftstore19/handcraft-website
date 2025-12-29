@@ -29,9 +29,9 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, Pencil, Trash2, Search, Package, Upload, X, Copy } from 'lucide-react';
-import { categories, formatPrice, Product, StoreAvailability } from '@/data/categories';
+import { formatPrice, Product, StoreAvailability, Category } from '@/data/categories';
 import { useToast } from '@/hooks/use-toast';
-import { productService } from '@/services/firestoreService';
+import { productService, categoryService } from '@/services/firestoreService';
 import { validateImageFile, formatFileSize } from '@/lib/imageCompressor';
 import { uploadProductImage, deleteProductImage } from '@/services/storageService';
 
@@ -50,13 +50,29 @@ const AdminProducts = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  // Load products from Firestore
+  // Load products and categories from Firestore
   useEffect(() => {
     loadProducts();
+    loadCategories();
   }, []);
+
+  const loadCategories = async () => {
+    try {
+      const firestoreCategories = await categoryService.getAll();
+      setCategories(firestoreCategories);
+    } catch (error) {
+      console.error('Error loading categories:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load categories from Firestore.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const loadProducts = async () => {
     try {
