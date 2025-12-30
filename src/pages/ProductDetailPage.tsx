@@ -1,12 +1,12 @@
 import { useParams, Link } from "react-router-dom";
-import { ChevronRight, Star, Heart, ShoppingBag, Minus, Plus, Check } from "lucide-react";
+import { ChevronRight, Star, Heart, ShoppingBag, Minus, Plus, Check, Share2 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Product, Category } from "@/data/categories";
+import { Product, Category, formatPrice } from "@/data/categories";
 import { useWishlist } from "@/contexts/WishlistContext";
 import { useReview } from "@/contexts/ReviewContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -118,6 +118,48 @@ const ProductDetailPage = () => {
     }
   };
 
+  const handleShare = async () => {
+    const productUrl = `${window.location.origin}/product/${product.id}`;
+    const shareText = `Check out ${product.name} at Damodar Handicrafts! ${productUrl}`;
+
+    // Try Web Share API first (mobile devices)
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: product.name,
+          text: `Check out ${product.name} at Damodar Handicrafts!`,
+          url: productUrl,
+        });
+        toast({
+          title: "Shared!",
+          description: "Product link shared successfully.",
+        });
+        return;
+      } catch (error) {
+        // User cancelled or share failed, fall through to clipboard
+        if ((error as Error).name !== 'AbortError') {
+          console.error('Error sharing:', error);
+        }
+      }
+    }
+
+    // Fallback: Copy to clipboard
+    try {
+      await navigator.clipboard.writeText(shareText);
+      toast({
+        title: "Link Copied!",
+        description: "Product link has been copied to your clipboard.",
+      });
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
+      toast({
+        title: "Error",
+        description: "Failed to copy link. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
@@ -199,9 +241,22 @@ const ProductDetailPage = () => {
 
                 {/* Price */}
                 <div className="mb-6">
-                  <span className="text-4xl font-semibold text-foreground">
-                    ${product.price.toFixed(2)}
-                  </span>
+                  {product.discountPrice ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3">
+                        <span className="text-4xl font-semibold text-foreground">
+                          {formatPrice(product.discountPrice)}
+                        </span>
+                        <span className="text-xl text-muted-foreground line-through">
+                          {formatPrice(product.price)}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-4xl font-semibold text-foreground">
+                      {formatPrice(product.price)}
+                    </span>
+                  )}
                 </div>
 
                 {/* Description */}
@@ -267,6 +322,15 @@ const ProductDetailPage = () => {
                     <Heart className={`h-5 w-5 mr-2 ${isInWishlist(product.id) ? "fill-primary text-primary" : ""}`} />
                     {isInWishlist(product.id) ? "Wishlisted" : "Add to Wishlist"}
                   </Button>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={handleShare}
+                  >
+                    <Share2 className="h-5 w-5 mr-2" />
+                    Share
+                  </Button>
                 </div>
               </div>
             </div>
@@ -306,9 +370,22 @@ const ProductDetailPage = () => {
                             <span className="text-sm font-medium">{relatedProduct.rating}</span>
                             <span className="text-sm text-muted-foreground">({relatedProduct.reviews})</span>
                           </div>
-                          <p className="text-xl font-semibold text-foreground">
-                            ${relatedProduct.price.toFixed(2)}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            {relatedProduct.discountPrice ? (
+                              <>
+                                <p className="text-xl font-semibold text-foreground">
+                                  {formatPrice(relatedProduct.discountPrice)}
+                                </p>
+                                <p className="text-sm text-muted-foreground line-through">
+                                  {formatPrice(relatedProduct.price)}
+                                </p>
+                              </>
+                            ) : (
+                              <p className="text-xl font-semibold text-foreground">
+                                {formatPrice(relatedProduct.price)}
+                              </p>
+                            )}
+                          </div>
                         </div>
                         <button
                           onClick={(e) => {

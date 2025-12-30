@@ -4,7 +4,7 @@ import { ChevronRight, Star, Heart, ShoppingBag } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Category, Subcategory, Product, StoreAvailability } from "@/data/categories";
+import { Category, Subcategory, Product, StoreAvailability, formatPrice } from "@/data/categories";
 import { useStore } from "@/contexts/StoreContext";
 import { categoryService, subcategoryService, productService } from "@/services/firestoreService";
 
@@ -181,9 +181,22 @@ const ProductListingPage = () => {
                       
                       {/* Price & Add to Cart */}
                       <div className="flex items-center justify-between">
-                        <span className="text-xl font-semibold text-foreground">
-                          ${product.price.toFixed(2)}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {product.discountPrice ? (
+                            <>
+                              <span className="text-xl font-semibold text-foreground">
+                                {formatPrice(product.discountPrice)}
+                              </span>
+                              <span className="text-sm text-muted-foreground line-through">
+                                {formatPrice(product.price)}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-xl font-semibold text-foreground">
+                              {formatPrice(product.price)}
+                            </span>
+                          )}
+                        </div>
                         <Button size="sm" className="rounded-full">
                           <ShoppingBag className="h-4 w-4 mr-1" />
                           Add

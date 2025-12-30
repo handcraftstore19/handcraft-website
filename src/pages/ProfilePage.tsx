@@ -320,8 +320,13 @@ const ProfilePage = () => {
     navigate('/cart');
   };
 
+  useEffect(() => {
+    if (!user) {
+      navigate('/login');
+    }
+  }, [user, navigate]);
+
   if (!user) {
-    navigate('/login');
     return null;
   }
 

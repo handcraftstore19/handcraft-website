@@ -1,33 +1,52 @@
 import { useState, useEffect, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Link } from "react-router-dom";
+import { carouselService } from "@/services/firestoreService";
 
-const slides = [
-  {
-    id: 1,
-    image: "/assets/images/trophies_carousel.png",
-    link: "/category/1",
-  },
-  {
-    id: 2,
-    image: "/assets/images/decor_carousel.png",
-    link: "/category/4",
-  },
-  {
-    id: 3,
-    image: "/assets/images/momentos_carousel.png",
-    link: "/category/3",
-  },
-];
+interface CarouselSlide {
+  id: string;
+  title: string;
+  subtitle: string;
+  image: string;
+  link: string;
+  active: boolean;
+  order: number;
+}
 
 const HeroCarousel = () => {
+  const [slides, setSlides] = useState<CarouselSlide[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  const [loading, setLoading] = useState(true);
 
-  const nextSlide = useCallback(() => {
-    setCurrentSlide((prev) => (prev + 1) % slides.length);
+  useEffect(() => {
+    const loadCarousels = async () => {
+      try {
+        const allCarousels = await carouselService.getAll();
+        console.log('All carousels loaded:', allCarousels);
+        const activeCarousels = allCarousels
+          .filter((c: any) => c.active !== false) // Show if active is true or undefined
+          .sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
+        console.log('Active carousels:', activeCarousels);
+        setSlides(activeCarousels);
+      } catch (error) {
+        console.error('Error loading carousels:', error);
+        // Fallback to empty array if Firestore fails
+        setSlides([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadCarousels();
   }, []);
 
+  const nextSlide = useCallback(() => {
+    if (slides.length === 0) return;
+    setCurrentSlide((prev) => (prev + 1) % slides.length);
+  }, [slides.length]);
+
   const prevSlide = () => {
+    if (slides.length === 0) return;
     setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
   };
 
@@ -38,10 +57,20 @@ const HeroCarousel = () => {
   };
 
   useEffect(() => {
-    if (!isAutoPlaying) return;
+    if (!isAutoPlaying || slides.length === 0) return;
     const interval = setInterval(nextSlide, 5000);
     return () => clearInterval(interval);
-  }, [isAutoPlaying, nextSlide]);
+  }, [isAutoPlaying, nextSlide, slides.length]);
+
+  if (loading) {
+    return (
+      <section className="relative h-[500px] md:h-[600px] overflow-hidden bg-muted animate-pulse" />
+    );
+  }
+
+  if (slides.length === 0) {
+    return null; // Don't show carousel if no active slides
+  }
 
   return (
     <section className="relative h-[500px] md:h-[600px] overflow-hidden">
@@ -55,12 +84,19 @@ const HeroCarousel = () => {
             }`}
           >
             {/* Background Image */}
-            <a href={slide.link} className="block h-full">
+            <Link to={slide.link} className="block h-full">
               <div
                 className="absolute inset-0 bg-cover bg-center"
                 style={{ backgroundImage: `url(${slide.image})` }}
               />
-            </a>
+              {/* Optional: Overlay with title/subtitle */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end">
+                <div className="container mx-auto px-4 pb-12 text-card">
+                  <h2 className="text-3xl md:text-5xl font-bold mb-2">{slide.title}</h2>
+                  <p className="text-lg md:text-xl">{slide.subtitle}</p>
+                </div>
+              </div>
+            </Link>
           </div>
         ))}
       </div>

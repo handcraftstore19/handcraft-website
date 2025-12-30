@@ -85,6 +85,83 @@ export const deleteProductImage = async (imageUrl: string): Promise<void> => {
 };
 
 /**
+ * Upload carousel image to Firebase Storage
+ * @param file - Image file to upload
+ * @param carouselId - Carousel ID (for organizing files, optional)
+ * @returns Download URL of uploaded image
+ */
+export const uploadCarouselImage = async (
+  file: File,
+  carouselId?: string
+): Promise<string> => {
+  try {
+    // Validate file
+    if (!file.type.startsWith('image/')) {
+      throw new Error('File must be an image');
+    }
+
+    // Compress image (max 2MB for carousels - they can be larger)
+    const compressResult = await compressImageToBase64(file, { maxSizeMB: 2 }); // 2MB
+    
+    // Convert base64 data URL to blob
+    const base64Response = await fetch(compressResult.base64);
+    if (!base64Response.ok) {
+      throw new Error('Failed to convert base64 to blob');
+    }
+    const blob = await base64Response.blob();
+
+    // Create storage reference
+    const timestamp = Date.now();
+    const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const fileName = carouselId 
+      ? `carousels/${carouselId}/${timestamp}_${sanitizedFileName}`
+      : `carousels/${timestamp}_${sanitizedFileName}`;
+    
+    const storageRef = ref(storage, fileName);
+
+    // Upload file
+    console.log('Uploading carousel image to Firebase Storage:', fileName);
+    await uploadBytes(storageRef, blob);
+    console.log('Carousel image uploaded successfully');
+
+    // Get download URL
+    const downloadURL = await getDownloadURL(storageRef);
+    console.log('Download URL:', downloadURL);
+    
+    if (!downloadURL || !downloadURL.startsWith('https://')) {
+      throw new Error('Invalid download URL received from Firebase Storage');
+    }
+    
+    return downloadURL;
+  } catch (error: any) {
+    console.error('Error uploading carousel image:', error);
+    throw new Error(error.message || 'Failed to upload image to Firebase Storage');
+  }
+};
+
+/**
+ * Delete carousel image from Firebase Storage
+ * @param imageUrl - URL of image to delete
+ */
+export const deleteCarouselImage = async (imageUrl: string): Promise<void> => {
+  try {
+    // Extract path from URL
+    const url = new URL(imageUrl);
+    const path = decodeURIComponent(url.pathname.split('/o/')[1]?.split('?')[0] || '');
+    
+    if (!path) {
+      throw new Error('Invalid image URL');
+    }
+
+    const storageRef = ref(storage, path);
+    await deleteObject(storageRef);
+  } catch (error) {
+    console.error('Error deleting carousel image:', error);
+    throw error;
+  }
+};
+
+/**
  * Upload category/subcategory image as base64 (for smaller images)
  * @param file - Image file
  * @returns Base64 string

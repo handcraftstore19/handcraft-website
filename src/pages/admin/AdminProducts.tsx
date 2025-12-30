@@ -28,12 +28,47 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Pencil, Trash2, Search, Package, Upload, X, Copy } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Package, Copy } from 'lucide-react';
+import ProductFormWizard from './ProductFormWizard';
 import { formatPrice, Product, StoreAvailability, Category } from '@/data/categories';
 import { useToast } from '@/hooks/use-toast';
 import { productService, categoryService } from '@/services/firestoreService';
 import { validateImageFile, formatFileSize } from '@/lib/imageCompressor';
 import { uploadProductImage, deleteProductImage } from '@/services/storageService';
+import { collection, query, where, getDocs, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+
+// Helper function to update productCount in subcategory
+const updateSubcategoryProductCount = async (categoryId: number, subcategoryId: number): Promise<void> => {
+  try {
+    // Get all products for this subcategory
+    const q = query(
+      collection(db, 'products'),
+      where('categoryId', '==', categoryId),
+      where('subcategoryId', '==', subcategoryId)
+    );
+    const snapshot = await getDocs(q);
+    const productCount = snapshot.size;
+
+    // Update subcategory productCount
+    const subQ = query(
+      collection(db, 'subcategories'),
+      where('categoryId', '==', categoryId),
+      where('id', '==', subcategoryId)
+    );
+    const subSnapshot = await getDocs(subQ);
+    
+    if (!subSnapshot.empty) {
+      const subDocRef = subSnapshot.docs[0].ref;
+      await updateDoc(subDocRef, {
+        productCount,
+        updatedAt: serverTimestamp(),
+      });
+    }
+  } catch (error) {
+    console.error('Error updating subcategory product count:', error);
+  }
+};
 
 const tagOptions = [
   { value: 'best-seller', label: 'Best Seller', color: 'bg-green-100 text-green-800' },
@@ -149,7 +184,22 @@ const AdminProducts = () => {
       };
 
       if (editingProduct) {
+        // Check if category or subcategory changed
+        const oldCategoryId = editingProduct.categoryId;
+        const oldSubcategoryId = editingProduct.subcategoryId;
+        const newCategoryId = parseInt(formData.categoryId);
+        const newSubcategoryId = parseInt(formData.subcategoryId);
+        
         await productService.update(editingProduct.id, productData);
+        
+        // Update counts for both old and new subcategories if changed
+        if (oldCategoryId !== newCategoryId || oldSubcategoryId !== newSubcategoryId) {
+          await updateSubcategoryProductCount(oldCategoryId, oldSubcategoryId);
+          await updateSubcategoryProductCount(newCategoryId, newSubcategoryId);
+        } else {
+          await updateSubcategoryProductCount(newCategoryId, newSubcategoryId);
+        }
+        
         toast({
           title: "Product Updated",
           description: "Product has been updated successfully.",
@@ -251,375 +301,6 @@ const AdminProducts = () => {
     }
   };
 
-  const ProductForm = ({ product, onClose }: { product?: Product | null; onClose?: () => void }) => {
-    // Form state - initialize ONCE from product prop and NEVER reset
-    // State is set only when component first mounts, then preserved through all re-renders
-    const [productName, setProductName] = useState(product?.name || '');
-    const [productPrice, setProductPrice] = useState(product?.price?.toString() || '0');
-    const [productDiscountPrice, setProductDiscountPrice] = useState(product?.discountPrice?.toString() || '');
-    const [productStock, setProductStock] = useState(product?.stock?.toString() || '0');
-    const [productDescription, setProductDescription] = useState(product?.description || '');
-    const [productFeatures, setProductFeatures] = useState(product?.features?.join('\n') || '');
-    const [formCategory, setFormCategory] = useState(product?.categoryId?.toString() || '');
-    const [formSubcategory, setFormSubcategory] = useState(product?.subcategoryId?.toString() || '');
-    const [selectedTags, setSelectedTags] = useState<string[]>(product?.tags || []);
-    const [imageFile, setImageFile] = useState<File | null>(null);
-    const [imagePreview, setImagePreview] = useState<string>(product?.image || '');
-    const [imageUrl, setImageUrl] = useState<string>(product?.image || '');
-    const [compressing, setCompressing] = useState(false);
-    const [storeAvailability, setStoreAvailability] = useState<StoreAvailability>(
-      product?.availableAt || {
-        hyderabad: true,
-        vizag: false,
-        warangal: false
-      }
-    );
-
-    // NO useEffect - state is initialized once and never reset
-    // This ensures form values persist through all re-renders, including image uploads
-
-    const selectedCategoryData = categories.find(c => c.id.toString() === formCategory);
-
-    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-
-      // Validate file
-      const validation = validateImageFile(file);
-      if (!validation.valid) {
-        toast({
-          title: "Invalid Image",
-          description: validation.error,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setImageFile(file);
-      setCompressing(true);
-
-      try {
-        // Create a preview URL for immediate display
-        const previewUrl = URL.createObjectURL(file);
-        setImagePreview(previewUrl);
-
-        toast({
-          title: "Image Selected",
-          description: "Image will be uploaded to Firebase Storage when you save the product.",
-        });
-      } catch (error) {
-        console.error('Error processing image:', error);
-        toast({
-          title: "Error",
-          description: "Failed to process image. Please try again.",
-          variant: "destructive",
-        });
-      } finally {
-        setCompressing(false);
-      }
-    };
-
-    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-      e.preventDefault();
-      const formData = {
-        name: productName,
-        price: productPrice,
-        discountPrice: productDiscountPrice,
-        stock: productStock,
-        image: imagePreview || imageUrl,
-        description: productDescription,
-        features: productFeatures,
-        tags: selectedTags,
-        categoryId: formCategory,
-        subcategoryId: formSubcategory,
-        availableAt: storeAvailability,
-      };
-      handleSaveProduct(formData, imageFile, product?.image);
-    };
-
-    return (
-      <form onSubmit={handleSubmit}>
-        <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <Label htmlFor="name">Product Name</Label>
-              <Input 
-                id="name" 
-                value={productName}
-                onChange={(e) => setProductName(e.target.value)}
-                placeholder="Enter product name" 
-                required 
-              />
-            </div>
-
-          <div>
-            <Label htmlFor="category">Category</Label>
-            <Select value={formCategory} onValueChange={setFormCategory}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map(cat => (
-                  <SelectItem key={cat.id} value={cat.id.toString()}>
-                    {cat.icon} {cat.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="subcategory">Subcategory</Label>
-            <Select value={formSubcategory} onValueChange={setFormSubcategory} disabled={!formCategory}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select subcategory" />
-              </SelectTrigger>
-              <SelectContent>
-                {selectedCategoryData?.subcategories.map(sub => (
-                  <SelectItem key={sub.id} value={sub.id.toString()}>
-                    {sub.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="price">Price (₹)</Label>
-            <Input 
-              id="price" 
-              type="number" 
-              value={productPrice}
-              onChange={(e) => setProductPrice(e.target.value)}
-              placeholder="0" 
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="discountPrice">Discount Price (₹)</Label>
-            <Input 
-              id="discountPrice" 
-              type="number" 
-              value={productDiscountPrice}
-              onChange={(e) => setProductDiscountPrice(e.target.value)}
-              placeholder="Optional" 
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="stock">Stock Quantity</Label>
-            <Input 
-              id="stock" 
-              type="number" 
-              value={productStock}
-              onChange={(e) => setProductStock(e.target.value)}
-              placeholder="0" 
-            />
-          </div>
-
-          <div className="col-span-2">
-            <Label htmlFor="image">Product Image</Label>
-            <div className="space-y-2">
-              {imagePreview && (
-                <div className="relative w-32 h-32 border rounded-lg overflow-hidden">
-                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-1 right-1 h-6 w-6"
-                    onClick={() => {
-                      setImagePreview('');
-                      setImageFile(null);
-                    }}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-              )}
-              <div className="flex gap-2">
-                <Label
-                  htmlFor="image-upload"
-                  className="flex items-center justify-center gap-2 px-4 py-2 border rounded-md cursor-pointer hover:bg-muted"
-                >
-                  <Upload className="h-4 w-4" />
-                  {compressing ? 'Compressing...' : imageFile ? 'Change Image' : 'Upload Image'}
-                </Label>
-                <Input
-                  id="image-upload"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  disabled={compressing}
-                  className="hidden"
-                />
-                {!imagePreview && (
-                  <Input
-                    id="image-url"
-                    placeholder="Or enter image URL"
-                    value={imageUrl}
-                    onChange={(e) => {
-                      setImageUrl(e.target.value);
-                      setImagePreview(e.target.value);
-                    }}
-                  />
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Upload an image (max 1MB) or enter an image URL
-              </p>
-            </div>
-          </div>
-
-          <div className="col-span-2">
-            <Label>Tags</Label>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {tagOptions.map(tag => (
-                <label
-                  key={tag.value}
-                  className={`
-                    flex items-center gap-2 px-3 py-1.5 rounded-full cursor-pointer border transition-all
-                    ${selectedTags.includes(tag.value) 
-                      ? `${tag.color} border-transparent` 
-                      : 'bg-muted border-border hover:bg-muted/80'
-                    }
-                  `}
-                >
-                  <Checkbox
-                    checked={selectedTags.includes(tag.value)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedTags([...selectedTags, tag.value]);
-                      } else {
-                        setSelectedTags(selectedTags.filter(t => t !== tag.value));
-                      }
-                    }}
-                    className="hidden"
-                  />
-                  <span className="text-sm">{tag.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="col-span-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea 
-              id="description" 
-              defaultValue={product?.description} 
-              placeholder="Product description..."
-              rows={3}
-            />
-          </div>
-
-          <div className="col-span-2">
-            <Label htmlFor="features">Features (one per line)</Label>
-            <Textarea 
-              id="features" 
-              value={productFeatures}
-              onChange={(e) => setProductFeatures(e.target.value)}
-              placeholder="Feature 1&#10;Feature 2&#10;Feature 3"
-              rows={4}
-            />
-          </div>
-
-          <div className="col-span-2">
-            <Label>Product Available At Stores</Label>
-            <div className="space-y-3 mt-2 p-4 border rounded-lg bg-muted/30">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">Hyderabad</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs ${storeAvailability.hyderabad ? 'text-green-600' : 'text-muted-foreground'}`}>
-                    {storeAvailability.hyderabad ? 'ON' : 'OFF'}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setStoreAvailability({ ...storeAvailability, hyderabad: !storeAvailability.hyderabad })}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      storeAvailability.hyderabad ? 'bg-primary' : 'bg-muted'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        storeAvailability.hyderabad ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">Visakhapatnam</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs ${storeAvailability.vizag ? 'text-green-600' : 'text-muted-foreground'}`}>
-                    {storeAvailability.vizag ? 'ON' : 'OFF'}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setStoreAvailability({ ...storeAvailability, vizag: !storeAvailability.vizag })}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      storeAvailability.vizag ? 'bg-primary' : 'bg-muted'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        storeAvailability.vizag ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">Warangal</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs ${storeAvailability.warangal ? 'text-green-600' : 'text-muted-foreground'}`}>
-                    {storeAvailability.warangal ? 'ON' : 'OFF'}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setStoreAvailability({ ...storeAvailability, warangal: !storeAvailability.warangal })}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      storeAvailability.warangal ? 'bg-primary' : 'bg-muted'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        storeAvailability.warangal ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-          <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setIsAddDialogOpen(false);
-                setEditingProduct(null);
-                setImagePreview('');
-                setImageFile(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" className="bg-accent hover:bg-accent/90">
-              {product ? 'Update Product' : 'Add Product'}
-            </Button>
-          </div>
-        </div>
-      </form>
-    );
-  };
 
   return (
     <div className="space-y-6">
@@ -640,7 +321,13 @@ const AdminProducts = () => {
             <DialogHeader>
               <DialogTitle>Add New Product</DialogTitle>
             </DialogHeader>
-            {isAddDialogOpen && <ProductForm key="add-product-form" onClose={() => setIsAddDialogOpen(false)} />}
+            {isAddDialogOpen && (
+              <ProductFormWizard
+                categories={categories}
+                onSave={handleSaveProduct}
+                onClose={() => setIsAddDialogOpen(false)}
+              />
+            )}
           </DialogContent>
         </Dialog>
       </div>
@@ -666,7 +353,12 @@ const AdminProducts = () => {
                 <SelectItem value="all">All Categories</SelectItem>
                 {categories.map(cat => (
                   <SelectItem key={cat.id} value={cat.id.toString()}>
-                    {cat.icon} {cat.name}
+                    {cat.iconName ? (
+                      <img src={cat.iconName} alt={cat.name} className="w-4 h-4 inline mr-2" />
+                    ) : (
+                      <span className="mr-2">📦</span>
+                    )}
+                    {cat.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -708,12 +400,20 @@ const AdminProducts = () => {
                         />
                         <div>
                           <p className="font-medium text-foreground">{product.name}</p>
-                          <p className="text-xs text-muted-foreground">{product.subcategoryName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {(() => {
+                              const cat = categories.find(c => c.id === product.categoryId);
+                              const subcat = cat?.subcategories.find(s => s.id === product.subcategoryId);
+                              return subcat?.name || 'Unknown';
+                            })()}
+                          </p>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm">{product.categoryName}</span>
+                      <span className="text-sm">
+                        {categories.find(c => c.id === product.categoryId)?.name || 'Unknown'}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <div>
@@ -773,9 +473,10 @@ const AdminProducts = () => {
                               <DialogTitle>Edit Product</DialogTitle>
                             </DialogHeader>
                             {editingProduct?.id === product.id && (
-                              <ProductForm 
-                                key={`edit-product-${product.id}`} 
-                                product={product} 
+                              <ProductFormWizard
+                                product={product}
+                                categories={categories}
+                                onSave={handleSaveProduct}
                                 onClose={() => setEditingProduct(null)}
                               />
                             )}

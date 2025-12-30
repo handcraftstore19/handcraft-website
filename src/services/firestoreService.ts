@@ -42,6 +42,39 @@ const timestampToDate = (timestamp: any): Date => {
   return new Date();
 };
 
+// Helper function to update productCount in subcategory
+const updateSubcategoryProductCount = async (categoryId: number, subcategoryId: number): Promise<void> => {
+  try {
+    // Get all products for this subcategory
+    const q = query(
+      collection(db, COLLECTIONS.PRODUCTS),
+      where('categoryId', '==', categoryId),
+      where('subcategoryId', '==', subcategoryId)
+    );
+    const snapshot = await getDocs(q);
+    const productCount = snapshot.size;
+
+    // Update subcategory productCount
+    const subQ = query(
+      collection(db, COLLECTIONS.SUBCATEGORIES),
+      where('categoryId', '==', categoryId),
+      where('id', '==', subcategoryId)
+    );
+    const subSnapshot = await getDocs(subQ);
+    
+    if (!subSnapshot.empty) {
+      const subDocRef = subSnapshot.docs[0].ref;
+      await updateDoc(subDocRef, {
+        productCount,
+        updatedAt: serverTimestamp(),
+      });
+    }
+  } catch (error) {
+    console.error('Error updating subcategory product count:', error);
+    // Don't throw - this is a background update
+  }
+};
+
 // Product Operations
 export const productService = {
   // Get all products
@@ -122,6 +155,10 @@ export const productService = {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+      
+      // Update productCount in subcategory
+      await updateSubcategoryProductCount(product.categoryId, product.subcategoryId);
+      
       return docRef.id;
     } catch (error) {
       console.error('Error creating product:', error);
@@ -146,8 +183,17 @@ export const productService = {
   // Delete product
   delete: async (productId: string | number): Promise<void> => {
     try {
+      // Get product before deleting to update count
+      const productDoc = await getDoc(doc(db, COLLECTIONS.PRODUCTS, String(productId)));
+      const productData = productDoc.data();
+      
       const docRef = doc(db, COLLECTIONS.PRODUCTS, String(productId));
       await deleteDoc(docRef);
+      
+      // Update productCount in subcategory
+      if (productData) {
+        await updateSubcategoryProductCount(productData.categoryId, productData.subcategoryId);
+      }
     } catch (error) {
       console.error('Error deleting product:', error);
       throw error;
@@ -744,15 +790,17 @@ export const carouselService = {
   // Get all carousels
   getAll: async (): Promise<any[]> => {
     try {
-      const q = query(
-        collection(db, COLLECTIONS.CAROUSELS),
-        orderBy('order', 'asc')
-      );
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map((doc) => ({
+      const snapshot = await getDocs(collection(db, COLLECTIONS.CAROUSELS));
+      const carousels = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       }));
+      // Sort by order field (handle missing order field)
+      return carousels.sort((a: any, b: any) => {
+        const orderA = a.order ?? 999999;
+        const orderB = b.order ?? 999999;
+        return orderA - orderB;
+      });
     } catch (error) {
       console.error('Error getting carousels:', error);
       throw error;

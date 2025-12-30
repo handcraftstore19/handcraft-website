@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Plus, Image, Pencil, Trash2, Eye, EyeOff, GripVertical, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { carouselService } from '@/services/firestoreService';
-import { uploadImageAsBase64 } from '@/services/storageService';
+import { uploadCarouselImage, deleteCarouselImage } from '@/services/storageService';
 
 const AdminCarousels = () => {
   const [carousels, setCarousels] = useState<any[]>([]);
@@ -45,10 +45,10 @@ const AdminCarousels = () => {
   };
 
   const handleSave = async () => {
-    if (!title || !subtitle || (!imageUrl && !imageFile)) {
+    if (!title || !subtitle || (!imageUrl && !imageFile) || !link) {
       toast({
         title: "Validation Error",
-        description: "Please fill in all required fields.",
+        description: "Please fill in all required fields (Title, Subtitle, Image, and Link URL).",
         variant: "destructive",
       });
       return;
@@ -57,8 +57,30 @@ const AdminCarousels = () => {
     try {
       let finalImageUrl = imageUrl;
       
+      // Upload image to Firebase Storage if file is provided
       if (imageFile) {
-        finalImageUrl = await uploadImageAsBase64(imageFile);
+        try {
+          finalImageUrl = await uploadCarouselImage(imageFile, editingCarousel?.id);
+        } catch (uploadError: any) {
+          toast({
+            title: "Image Upload Failed",
+            description: uploadError.message || "Failed to upload image to Firebase Storage. Please try again.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      // If editing and had a previous image in Storage, delete the old one
+      if (isEditMode && editingCarousel && editingCarousel.image && 
+          editingCarousel.image.startsWith('https://') && 
+          editingCarousel.image !== finalImageUrl) {
+        try {
+          await deleteCarouselImage(editingCarousel.image);
+        } catch (deleteError) {
+          console.warn('Could not delete old carousel image:', deleteError);
+          // Continue even if deletion fails
+        }
       }
 
       const order = carousels.length > 0 
@@ -104,6 +126,7 @@ const AdminCarousels = () => {
       setIsOpen(false);
       await loadCarousels();
     } catch (error: any) {
+      console.error('Error saving carousel:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to save carousel.",
@@ -146,13 +169,29 @@ const AdminCarousels = () => {
     }
 
     try {
+      // Get carousel to check if it has an image in Firebase Storage
+      const carousel = carousels.find(c => c.id === carouselId);
+      
+      // Delete carousel from Firestore
       await carouselService.delete(carouselId);
+      
+      // Delete image from Firebase Storage if it exists
+      if (carousel?.image && carousel.image.startsWith('https://')) {
+        try {
+          await deleteCarouselImage(carousel.image);
+        } catch (deleteError) {
+          console.warn('Could not delete carousel image from Storage:', deleteError);
+          // Continue even if image deletion fails
+        }
+      }
+      
       toast({
         title: "Success",
         description: "Carousel deleted successfully.",
       });
       await loadCarousels();
     } catch (error: any) {
+      console.error('Error deleting carousel:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to delete carousel.",

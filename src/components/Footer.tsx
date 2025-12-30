@@ -11,7 +11,7 @@ const Footer = () => {
           <div className="space-y-4">
             <h3 className="font-display text-2xl font-semibold">Damodar Handicrafts</h3>
             <p className="text-card/70 leading-relaxed">
-              Crafting excellence since 2024. Premium trophies, medals, 
+              Crafting excellence since 1989. Premium trophies, medals, 
               home decor and decorative crafts delivered to your door.
             </p>
             <div className="flex gap-4 pt-2">
@@ -89,18 +89,30 @@ const Footer = () => {
                 Subscribe
               </Button>
             </div>
-            <div className="mt-6 space-y-2 text-card/70 text-sm">
+            <div className="mt-6 space-y-3 text-card/70 text-sm">
               <div className="flex items-center gap-2">
                 <Phone className="h-4 w-4" />
-                <span>+1 (555) 123-4567</span>
+                <span>+91 (XXX) XXX-XXXX</span>
               </div>
               <div className="flex items-center gap-2">
                 <Mail className="h-4 w-4" />
                 <span>hello@damodarhandicrafts.com</span>
               </div>
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                <span>New York, NY</span>
+              <div className="space-y-2">
+                <div className="flex items-start gap-2">
+                  <MapPin className="h-4 w-4 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Visakhapatnam Office</p>
+                    <p className="text-xs text-card/60">Address coming soon</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <MapPin className="h-4 w-4 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Warangal Office</p>
+                    <p className="text-xs text-card/60">Address coming soon</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -108,7 +120,7 @@ const Footer = () => {
 
         {/* Bottom Bar */}
         <div className="border-t border-card/10 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-card/60 text-sm">
-          <p>© 2024 Damodar Handicrafts. All rights reserved.</p>
+          <p>© 2025 Damodar Handicrafts. All rights reserved.</p>
           <div className="flex gap-6">
             <a href="#" className="hover:text-card transition-colors">Privacy Policy</a>
             <a href="#" className="hover:text-card transition-colors">Terms of Service</a>

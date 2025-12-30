@@ -4,6 +4,7 @@ import HeroCarousel from "@/components/HeroCarousel";
 import CategoriesSection from "@/components/CategoriesSection";
 import ProductSection from "@/components/ProductSection";
 import Footer from "@/components/Footer";
+import Marquee from "@/components/Marquee";
 import { getBestSellerProducts, getNewArrivalProducts, getFeaturedProducts } from "@/lib/searchUtils";
 import { useStore } from "@/contexts/StoreContext";
 import { Product } from "@/data/categories";
@@ -41,6 +42,7 @@ const Index = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
+      <Marquee />
       <main className="flex-1">
         <HeroCarousel />
         
